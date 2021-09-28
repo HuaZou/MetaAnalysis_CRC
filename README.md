@@ -11,7 +11,7 @@
 *  **Study**: The materials about the project
 
 ```bash
-CRC
+MetaAnalysis_CRC
 ├── Assay
 │   ├── 00.RawData
 │   │   ├── DownloadData_v0.Rmd
@@ -47,14 +47,20 @@ CRC
 │   │   ├── 02.Difference.Rmd
 │   │   ├── 02.Difference.nb.html
 │   │   ├── 03.RandomForest.Rmd
-│   │   ├── 03.RandomForest.html
 │   │   └── 03.RandomForest.nb.html
 │   └── 08.SupportVectorMachine
-│       └── SVM.Rmd
+│       ├── SVM.Rmd
+│       └── SVM.nb.html
 ├── README.md
 ├── Result
 │   ├── Biomarker
 │   │   └── RF_model
+│   ├── Differential
+│   │   ├── CRC_HC_DEA.csv
+│   │   ├── CRC_HC_DEA_limma.csv
+│   │   └── CRC_HC_DEA_wilcox.csv
+│   ├── Network
+│   │   └── species_SparCC.RDS
 │   ├── Phenotype
 │   │   └── phenotype.csv
 │   └── Profile
