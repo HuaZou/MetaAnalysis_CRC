@@ -1,0 +1,178 @@
+---
+title: "SparCC co-occurrence network analysis"
+date: "Created: 2021-09-18 Modified: `r Sys.Date()`"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(convert)
+library(microbiome) 
+library(phyloseq)
+library(RColorBrewer) 
+library(ggpubr) 
+library(SpiecEasi) 
+library(network)
+library(intergraph)
+library(ggnet)
+library(igraph)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### load data
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+table(pData(ExprSet)$SubGroup)
+```
+
+
+### Function
+```{r}
+SparCC_fun <- function(datset=ExprSet,
+                       group_info="SubGroup",
+                       group_name=subgrp[c(1,3)]){
+  
+  # datset=ExprSet
+  # group_info="SubGroup"
+  # group_name=subgrp[c(1, 3)]
+  
+  phenotype <- pData(datset)
+  profile <- exprs(datset)
+  feature <- fData(datset)
+  
+  colnames(phenotype)[which(colnames(phenotype) == group_info)] <- "Group"
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- phenotype %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(Group=factor(Group, levels = group_name2))
+    group_name <- group_name2
+  }else{
+    pheno <- phenotype %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name))
+  }  
+  edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% 
+    t() %>% data.frame()
+  
+  mdat <- inner_join(pheno %>% dplyr::select(SampleID, Group),
+                     edata %>% rownames_to_column("SampleID"),
+                     by = "SampleID") %>%
+    column_to_rownames("SampleID")
+  
+  dat_prf <- mdat %>% dplyr::select(-Group) %>% as.matrix()
+  dat_phe <- mdat %>% dplyr::select(Group)
+  
+  # SPIEC-EASI
+  net <- spiec.easi(dat_prf,  # samples on rows and features/OTUs in columns
+                    method="mb", 
+                    icov.select.params=list(rep.num=50))
+  # sysmBeta
+  n.c <- symBeta(getOptBeta(net))
+  colnames(n.c) <- rownames(n.c) <- colnames(dat_prf)
+  vsize <- -log2(apply(dat_prf, 2, mean)) 
+  
+  # Prepare data for plotting
+  dat_igraph <- graph.adjacency(n.c, mode="undirected", add.rownames=TRUE, weighted=TRUE)
+  coords.fdr <- layout_with_fr(dat_igraph)
+  E(dat_igraph)[weight > 0]$color<-"steelblue" 
+  E(dat_igraph)[weight < 0]$color<-"orange"
+  
+  # calculate degree as a network statisitic
+  dat_igraph_mb <- degree.distribution(dat_igraph)
+  plot(0:(length(dat_igraph_mb)-1), 
+       dat_igraph_mb, 
+       ylim=c(0,.35), 
+       type='b', 
+       ylab="Frequency", 
+       xlab="Degree", 
+       main="Degree Distributions")  
+  
+  # convert igraph into ggnet object
+  dat_igraph_net <- asNetwork(dat_igraph)
+  network::set.edge.attribute(dat_igraph_net, "color", 
+                              ifelse(dat_igraph_net %e% "weight" > 0, "steelblue", "orange"))
+  
+  # phylum tax
+  feature$Species <- gsub(" ", "_", feature$Species)
+  phyla <- map_levels(colnames(dat_prf), from = "Species", to = "Phylum", feature)
+  dat_igraph_net %v% "Phylum" <- phyla
+  dat_igraph_net %v% "nodesize" <- vsize
+  
+  # plot
+  pl <- ggnet2(dat_igraph_net, 
+               node.color="Phylum", 
+               label=TRUE, 
+               node.size="nodesize", 
+               label.size=3, 
+               edge.color="color",
+               size.min=10)+ 
+          guides(color=guide_legend(title="Phylum"), size=FALSE)+ 
+          scale_color_manual(values = c("#a6cee3", "#1f78b4", 
+                  "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#ffff99",
+                  "#fdbf6f","#ff7f00", "#cab2d6", "#6a3d9a", "#b15928"))
+  
+  # network properties
+  betaMat <- as.matrix(symBeta(getOptBeta(net)))
+  
+  # We divide by two since an edge is represented by two entries in the matrix.
+  positive <- length(betaMat[betaMat>0])/2 
+  negative <- length(betaMat[betaMat<0])/2 
+  total <- length(betaMat[betaMat!=0])/2
+  print(paste0("Postive: ", positive))
+  print(paste0("Negative: ", negative))
+  
+  modules <- cluster_fast_greedy(dat_igraph)
+  
+  res <- list(net=net, pl=pl, module=modules)
+  
+  return(res)
+}
+
+if(!dir.exists("../../Result/Network/")){
+  dir.create("../../Result/Network/", recursive = T)
+}
+```
+
+
+### species: CRC vs HC
+```{r}
+species_SparCC <- SparCC_fun(datset=ExprSet,
+                             group_info="SubGroup",
+                             group_name=subgrp[c(1,3)])
+
+saveRDS(species_SparCC, "../../Result/Network/species_SparCC.RDS", compress = TRUE)
+```
+
+
+```{r, fig.height=8, fig.width=12}
+species_SparCC$pl
+```
+
+
+### Systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference 
+
+1. [Network Science Lesson 01](https://biovcnet.github.io/_pages/NetworkScience_SparCC.nb.html)
+
+2. [Inference of Microbial Ecological Networks](https://mibwurrepo.github.io/Microbial-bioinformatics-introductory-course-Material-2018/inference-of-microbial-ecological-networks.html)

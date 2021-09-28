@@ -1,0 +1,51 @@
+---
+title: "Phenotype"
+date: "Created: 2021-09-17 Updated: `r Sys.Date()`"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(gtsummary)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Input data
+```{r}
+phenotype <- read.csv("../../Result/Phenotype/phenotype.csv", row.names = 1)
+```
+
+
+### Curation
+```{r}
+phenotype %>%  
+    tbl_summary(
+      by = study_condition,
+      statistic = list(
+       all_continuous() ~ "{mean} ({sd})",
+       all_categorical() ~ "{n}/{N} ({p}%)")) %>%
+    add_p(pvalue_fun=function(x){style_pvalue(x, digits = 3)}) %>%
+    bold_labels() 
+```
+
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference

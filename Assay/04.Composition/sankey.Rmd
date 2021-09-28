@@ -1,0 +1,228 @@
+---
+title: "microbiota composition: sankey"
+date: "Created: 2021-09-18 Modified: `r Sys.Date()`"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(data.table)
+library(ggplot2)
+library(ggalluvial)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+tax_level <- c("Actinobacteria", "Bacteroidetes", "Firmicutes",
+               "Fusobacteria", "Proteobacteria", "Synergistetes",
+               "Tenericutes", "Verrucomicrobia", "Ascomycota", "Other")
+tax_color <- c("#6C326C", "#77A2D1", "#FFD169", "#635F5F", "#D4D09A", 
+               "#993116", "#6798CE", "#146666", "#CE9924", "#6D659D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+table(pData(ExprSet)$SubGroup)
+```
+
+
+### Function 
+```{r}
+sankey_plot <- function(datset=ExprSet,
+                        group_info="SubGroup",
+                        group_name=subgrp[c(1,3)],
+                        ntop=20){
+  
+  # datset=ExprSet
+  # group_info="SubGroup"
+  # group_name=subgrp[c(1, 3)]
+  # ntop=20
+  
+  phenotype <- pData(datset)
+  profile <- exprs(datset)
+  feature <- fData(datset)
+  
+  colnames(phenotype)[which(colnames(phenotype) == group_info)] <- "Group"
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- phenotype %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(Group=factor(Group, levels = group_name2))
+    group_name <- group_name2
+  }else{
+    pheno <- phenotype %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name))
+  }  
+  edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% data.frame()
+  
+  mdat <- inner_join(pheno %>% dplyr::select(SampleID, Group),
+                     edata %>% t() %>% data.frame() %>%
+                       rownames_to_column("SampleID"),
+                     by = "SampleID")   
+  
+  mdat_mean_top <- mdat %>%
+    dplyr::select(-c("SampleID", "Group")) %>%
+    summarise(across(everything(), mean)) %>%
+    tidyr::gather(key="tax", value="value") %>%
+    arrange(desc(value)) %>%
+    dplyr::slice(c(1:ntop)) %>%
+    mutate(tax=as.character(tax),
+           tax2=tax)
+  
+  mdat_mean_other <- mdat %>%
+    dplyr::select(-c("SampleID", "Group")) %>%
+    summarise(across(everything(), mean)) %>%
+    tidyr::gather(key="tax", value="value") %>%
+    arrange(desc(value)) %>%
+    dplyr::slice(-c(1:ntop)) %>%
+    mutate(tax=as.character(tax))
+
+  mdat_mean_other <- mdat %>% 
+      dplyr::select(-SampleID) %>%
+      group_by(Group) %>%
+      summarise(across(everything(), mean)) %>%
+      ungroup() %>%
+      tidyr::gather(key="tax", value="value", -Group) %>%
+      filter(tax%in%mdat_mean_other$tax) %>%
+      dplyr::select(-tax) %>%
+      group_by(Group) %>%
+      summarise(across(everything(), sum)) %>%
+      ungroup() %>%    
+      mutate(tax="Other")
+  
+  mdat_merge <- mdat %>%
+    dplyr::select(-SampleID) %>%
+    group_by(Group) %>%
+    summarise(across(everything(), mean)) %>%
+    ungroup() %>%
+    tidyr::gather(key="tax", value="value", -Group) %>%
+    filter(tax%in%mdat_mean_top$tax) %>%
+    mutate(Group=factor(Group, levels = group_name)) %>%
+    rbind(mdat_mean_other) %>%
+    tidyr::spread(key = "tax", value = "value") %>%
+    column_to_rownames("Group") %>%
+    t() %>% data.frame() %>%
+    rownames_to_column("Species")
+  
+  
+  feature$Species <- gsub(" ", "_", feature$Species) 
+  rownames(feature) <- NULL
+  
+  mdat_final <- mdat_merge %>%
+    inner_join(feature %>% select(all_of(c("Phylum", "Genus", "Species"))),
+               by = "Species") %>%
+    group_by(Phylum, Genus, Species) %>%
+    summarise(across(everything(), sum)) %>%
+    ungroup() %>% 
+    tidyr::gather(key="Group", value = "Abundance", 
+                  -c("Phylum", "Genus", "Species"))
+  
+  # match color for tax
+  match_color <- function(tax_id){
+      tax_idx <- pmatch(tax_id, tax_level)
+      col <- tax_color[tax_idx]
+      tax_name <- tax_level[tax_idx]
+      res <- data.frame(tax=tax_name, color=col)
+      return(res)
+  } 
+  
+  ann_colors <- match_color(unique(as.character(mdat_final$Phylum))) 
+  mdat_new <- mdat_final %>% mutate(Phylum=factor(Phylum, levels = ann_colors$tax)) %>%
+    mutate(Genus=factor(as.character(Genus)))
+  
+  # genus color
+  tax_table_gs <- mdat_new %>% dplyr::select(c("Phylum", "Genus")) %>% unique()
+  pm_fr <- levels(mdat_new$Phylum)
+  tax_table_gs$color <- NA
+  for(i in 1:length(pm_fr)){
+    idx <- grep(pm_fr[i], as.character(tax_table_gs$Phylum))
+    idx_col <- with(ann_colors, ann_colors[tax%in%pm_fr[i], ])$color
+    tax_table_gs$color[idx] <- colorRampPalette(c(idx_col, "white"))(50)[seq(10, 40, 5)]
+  }
+  
+  tax_table_gs$color <- ifelse(tax_table_gs$Genus == "Other", tax_color[10], tax_table_gs$color)
+  genus_color <- tax_table_gs %>% dplyr::select(c("Genus", "color")) %>% unique() %>%
+    setNames(c("Kind", "color")) 
+  
+  # species color
+  tax_table_sp <- mdat_new %>% dplyr::select(c("Genus", "Species")) %>% unique()
+  gs_fr <- levels(tax_table_sp$Genus)
+  tax_table_sp$color <- NA
+  for(i in 1:length(gs_fr)){
+    idx2 <- grep(gs_fr[i], as.character(tax_table_sp$Genus))
+    idx_col2 <- with(genus_color, genus_color[Kind%in%gs_fr[i], ])$color
+    tax_table_sp$color[idx2] <- colorRampPalette(c(idx_col2, "white"))(50)[seq(10, 40, 5)]
+  }
+  
+  tax_table_sp$color <- ifelse(tax_table_sp$Species == "Other", tax_color[10], tax_table_sp$color)
+  species_color <- tax_table_sp %>% dplyr::select(c("Species", "color")) %>% unique() %>%
+    setNames(c("Kind", "color"))
+  
+  # group color
+  group_color <- mdat_new %>% dplyr::select(Group) %>% unique() %>%
+    mutate(color=grp.col[1:length(unique(mdat_new$Group))]) %>%
+    setNames(c("Kind", "color"))
+  
+  all_color <- rbind(ann_colors %>% setNames(c("Kind", "color")),
+                     genus_color, species_color, group_color) %>% unique() 
+  
+  #colorRampPalette(c(genus_color[1], "white"))(100)
+  
+  pldata <- mdat_new %>% tidyr::gather(key="Group", value = "Type", -Abundance) %>%
+    mutate(Group=factor(Group, levels = c("Phylum", "Genus", "Species", "Group"))) %>%
+    mutate(Type=factor(as.character(Type), levels = c(all_color$Kind)))
+  type <- summary(pldata$Group)
+  pldata$Flow <- rep(1:type[1], length(type))
+  
+  pl <- ggplot(pldata, aes(x=Group, y=Abundance,
+            stratum=Type, alluvium=Flow, fill=Type))+
+            geom_stratum()+  
+            geom_text(stat="stratum", infer.label=TRUE, size=4, 
+                      family="serif", fontface="italic")+  
+            geom_flow()+  
+            scale_fill_manual(values=c(all_color$color),
+                              label=c(all_color$Kind)) + 
+            scale_x_discrete(limits=c("Phylum", "Genus", "Species", "Group"))+  
+            scale_y_continuous(expand = c(0, 0))+
+            guides(fill="none")+
+            labs(x="", y="Abundance")+  
+            theme(legend.position = "none", 
+                axis.line = element_line(),
+                panel.background = element_blank(),
+                axis.title.y = element_text(face="bold", color="black", size=14),
+                axis.title.x = element_text(face="bold", color="black", size=14),
+                axis.text.y = element_text(face="bold", color="black", size=10),
+                axis.text.x = element_text(face="bold", color="black", size=12),
+                text=element_text(family="serif"))
+  return(pl)
+}
+```
+
+
+### species: CRC vs HC
+```{r, fig.height=8, fig.width=12}
+sankey_plot(datset=ExprSet,
+            group_info="SubGroup",
+            group_name=subgrp[c(1,3)],
+            ntop=10)
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```

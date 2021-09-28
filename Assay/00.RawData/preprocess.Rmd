@@ -1,0 +1,157 @@
+---
+title: "Preprocessing the TreeSummarizedExperiment Object"
+date: "Created: 2021-09-17 Updated: `r Sys.Date()`"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+Integration of Colorectal Cancer metagenomic dataset to identify the potential biomarkers
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(curatedMetagenomicData)
+library(SummarizedExperiment)
+library(TreeSummarizedExperiment)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Input data
+```{r}
+relative_abundance <- readRDS("../../Study/curatedMetagenomicData/CRC_relative_abundance_Origin.RDS")
+# pathway_abundance <- readRDS("../../Study/curatedMetagenomicData/CRC_pathway_abundance_Origin.RDS")
+```
+
+
+### Curation
+```{r}
+get_ExprSet <- function(dataset=relative_abundance,
+                        taxatype="Species",
+                        occurrence=0.2){
+  
+  # dataset=relative_abundance
+  # taxatype="Species"
+  # occurrence=0.2  
+  
+  require(mia)
+  data_tse <- splitByRanks(dataset, rank = taxatype)[[1]]
+  
+  assay(data_tse) -> assay_data
+  rowData(data_tse) -> row_data
+  colData(data_tse) -> col_data
+  # rowTree(data_tse) -> row_tree
+  # rowLinks(data_tse) -> row_links
+  
+  # filter samples
+  phenotype <- data.frame(col_data) %>%
+    dplyr::select(study_name, study_condition, age, gender, country, BMI) %>%
+    na.omit() %>%
+    filter(study_condition%in%grp) %>%
+    rownames_to_column("temp") %>%
+    mutate(SubGroup=ifelse(study_condition == grp[1], subgrp[1], 
+                           ifelse(study_condition == grp[2], subgrp[2], subgrp[3]))) %>%
+    mutate(temp=gsub("-", "_", temp)) %>%
+    column_to_rownames("temp")
+
+  profile <- data.frame(assay_data)
+  colnames(profile) <- gsub("-", "_", colnames(assay_data))
+  rownames(profile) <- gsub(" ", "_", rownames(profile))
+  profile_cln <- profile %>% dplyr::select(rownames(phenotype)) %>%
+    rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp")    
+    
+  feature <- data.frame(row_data) 
+  rownames(feature) <- gsub(" ", "_", rownames(feature))
+  feature_cln <- feature[rownames(feature)%in%rownames(profile_cln), ]
+
+  require(convert)
+  exprs <- as.matrix(profile_cln)/100  # normalization
+  adf <- new("AnnotatedDataFrame", data=phenotype)
+  fdf <- new("AnnotatedDataFrame", data=feature_cln)
+  experimentData <- new("MIAME",
+          name="Hua Zou", lab="UCAS",
+          contact="zouhua1@outlook.com",
+          title="Tumor Experiment",
+          abstract="Profile",
+          url="www.zouhua.top",
+          other=list(notes="microbiota"))
+  expressionSet <- new("ExpressionSet",
+                       exprs=exprs,
+                       phenoData=adf,
+                       featureData=fdf,
+                       experimentData=experimentData)
+  
+  res <- list(tse=data_tse, es=expressionSet, prf=exprs, phe=phenotype)
+  
+  return(res)
+}
+
+if(!dir.exists("../../Result/Profile/")){
+  dir.create("../../Result/Profile/", recursive = T)
+}
+
+if(!dir.exists("../../Result/Phenotype/")){
+  dir.create("../../Result/Phenotype/", recursive = T)
+}
+```
+
+
+### Species
+```{r}
+species_relative_abundance <- get_ExprSet(dataset=relative_abundance, taxatype="Species")
+species_relative_abundance$es
+
+saveRDS(species_relative_abundance$tse, "../../Result/Profile/species_profile_TSE.RDS")
+saveRDS(species_relative_abundance$es, "../../Result/Profile/species_profile.RDS")
+write.table(species_relative_abundance$prf, "../../Result/Profile/species_profile.tsv", quote = F, row.names = T, sep = "\t")
+write.csv(species_relative_abundance$phe, "../../Result/Phenotype/phenotype.csv", row.names = T, sep = "\t")
+```
+
+### Genus
+```{r}
+genus_relative_abundance <- get_ExprSet(dataset=relative_abundance, taxatype="Genus")
+genus_relative_abundance$es
+
+saveRDS(genus_relative_abundance$tse, "../../Result/Profile/genus_profile_TSE.RDS")
+saveRDS(genus_relative_abundance$es, "../../Result/Profile/genus_profile.RDS")
+write.table(genus_relative_abundance$prf, "../../Result/Profile/genus_profile.tsv", quote = F, row.names = T, sep = "\t")
+```
+
+
+### Phylum
+```{r}
+phylum_relative_abundance <- get_ExprSet(dataset=relative_abundance, taxatype="Phylum")
+phylum_relative_abundance$es
+
+saveRDS(phylum_relative_abundance$tse, "../../Result/Profile/phylum_profile_TSE.RDS")
+saveRDS(phylum_relative_abundance$es, "../../Result/Profile/phylum_profile.RDS")
+write.table(phylum_relative_abundance$prf, "../../Result/Profile/phylum_profile.tsv", quote = F, row.names = T, sep = "\t")
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference
+
+1. [Introduction to TreeSummarizedExperiment](https://www.bioconductor.org/packages/release/bioc/vignettes/TreeSummarizedExperiment/inst/doc/Introduction_to_treeSummarizedExperiment.html)
+
+2. [ExpressionSetIntroduction](http://www.bioconductor.org/packages/release/bioc/vignettes/Biobase/inst/doc/ExpressionSetIntroduction.pdf)

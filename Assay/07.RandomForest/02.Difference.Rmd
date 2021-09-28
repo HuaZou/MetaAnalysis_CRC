@@ -1,0 +1,432 @@
+---
+title: "RandomForest on Differential Expression Proteins"
+date: "Created: 2021-09-18 Updated: `r Sys.Date()`"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+Discovery Set
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(convert)
+library(ggplot2)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data
+```{r}
+ExprSet <- readRDS("../../Result/Biomarker/RF_model/species_profile_Discovery.RDS")
+table(pData(ExprSet)$SubGroup)
+```
+
+
+### Differential Expression Analysis
+```{r}
+# T-test or Wilcox-test
+DEA_test <- function(dataset=ExprSet,
+                     group_name=subgrp,
+                     Pval=0.05,
+                     logFC=0.5){
+  
+  # dataset=ExprSet
+  # group_name=subgrp[c(1, 3)]
+  # Pval=0.05
+  # logFC=0.5
+  
+  
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=ifelse(SubGroup == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  
+  edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame()
+  
+  # Checking whether the two groups that where tested were normally distributed using the Shapiro-Wilk test
+  shapiro_res <- apply(edata, 1, function(x, y){
+    #dat <- data.frame(value=as.numeric(edata[1, ]), group=pheno$SubGroup)
+    dat <- data.frame(value=x, group=y)
+    t_res <- tapply(dat$value, dat$group, shapiro.test)
+    if(t_res[[1]]$p.value < 0.05 | t_res[[1]]$p.value < 0.05){
+      res <- FALSE
+    }else{
+      res <- TRUE
+    }
+    return(res)
+  }, pheno$SubGroup) %>%
+    data.frame() %>%
+    setNames("Normal") %>%
+    rownames_to_column("FeatureID")
+  
+  Normal_prof <- edata[shapiro_res$Normal, ]
+  Non_Normal_prof <- edata[!shapiro_res$Normal, ]
+  
+  if(nrow(Normal_prof) != 0){
+    # Normally distributed 
+    require(rstatix)  
+    Welch_res <- apply(Normal_prof, 1, function(x, y){
+      # dat <- data.frame(value=as.numeric(Normal_prof[1, ]), group=pheno$SubGroup)
+      dat <- data.frame(value=x, group=y)
+      # mn <- tapply(dat$value, dat$group, mean) %>%
+      #   data.frame() %>% setNames("value") %>%
+      #   rownames_to_column("Group")
+      # mn1 <- with(mn, mn[Group%in%group_name[1], "value"])
+      # mn2 <- with(mn, mn[Group%in%group_name[2], "value"])
+      # Log2FC <- log2(mn2/mn1)
+      mn <- tapply(dat$value, dat$group, compositions::geometricmean) %>%
+        data.frame() %>% setNames("value") %>%
+        rownames_to_column("Group")
+      mn1 <- with(mn, mn[Group%in%group_name[1], "value"])
+      mn2 <- with(mn, mn[Group%in%group_name[2], "value"])
+      Log2FC <- log2(mn1/mn2)
+      rest <- t_test(data = dat, value ~ group)
+      return(c(Log2FC, rest$statistic, rest$p))
+    }, pheno$SubGroup) %>% 
+      t() %>% data.frame() %>%
+      setNames(c("logFC", "Statistic", "P.value"))
+    Normal_res <- Welch_res %>%
+      filter(!is.nan(logFC)) %>%
+      filter(!is.infinite(logFC)) %>%
+      rownames_to_column("GeneID") %>%
+      arrange(desc(abs(logFC)), P.value)    
+  }else{
+    Normal_res <- data.frame()
+  }
+  
+  if(nrow(Non_Normal_prof) != 0){
+    # non-Normally distributed proteins
+    Wilcox_res <- apply(Non_Normal_prof, 1, function(x, y){
+      dat <- data.frame(value=as.numeric(Non_Normal_prof[1, ]), group=pheno$SubGroup)
+      dat <- data.frame(value=as.numeric(x), group=y)
+      mn <- tapply(dat$value, dat$group, mean) %>% # compositions::geometricmean
+        data.frame() %>% setNames("value") %>%
+        rownames_to_column("Group")
+      mn1 <- with(mn, mn[Group%in%group_name[1], "value"])
+      mn2 <- with(mn, mn[Group%in%group_name[2], "value"])
+      Log2FC <- log2(mn1/mn2)
+      rest <- wilcox.test(data = dat, value ~ group)
+      return(c(Log2FC, rest$statistic, rest$p.value))
+    }, pheno$SubGroup) %>% 
+      t() %>% data.frame() %>%
+      setNames(c("logFC", "Statistic", "P.value"))
+    Non_Normal_res <- Wilcox_res %>%
+      filter(!is.nan(logFC)) %>%
+      filter(!is.infinite(logFC)) %>%
+      rownames_to_column("GeneID") %>%
+      arrange(desc(abs(logFC)), P.value)     
+  }else{
+    Non_Normal_res <- data.frame()
+  }
+ 
+  
+  # Number & Block
+  res <- rbind(Normal_res, Non_Normal_res)
+  res$adj.P.Val <- p.adjust(as.numeric(res$P.value), method = "BH")
+  
+  dat_status <- table(pheno$SubGroup)
+  dat_status_number <- as.numeric(dat_status)
+  dat_status_name <- names(dat_status)
+  res$Block <- paste(paste(dat_status_number[1], dat_status_name[1], sep = "_"),
+                         "vs",
+                         paste(dat_status_number[2], dat_status_name[2], sep = "_")) 
+  # Enrichment
+  res[which(res$logFC > logFC & res$adj.P.Val < Pval), "Enrichment"] <- group_name[1]
+  res[which(res$logFC < -logFC & res$adj.P.Val < Pval), "Enrichment"] <- group_name[2]
+  res[which(abs(res$logFC) <= logFC | res$adj.P.Val >= Pval), "Enrichment"] <- "Nonsignif"
+  
+  res_final <- res %>% dplyr::select(GeneID, Block, logFC, adj.P.Val, Enrichment, everything()) %>%
+    arrange(adj.P.Val, logFC) 
+  
+  return(res_final)
+}
+
+# limma: linear regression
+get_DiffProtein_limma <- function(dataset=ExprSet,
+                                  group_name=subgrp[c(3,2,1)],
+                                  scale=FALSE,
+                                  fc=0.5,
+                                  Pval=0.05){
+
+  # dataset=ExprSet
+  # group_name=subgrp[c(3,2,1)]
+  # scale=FALSE
+  # fc=1
+  # Pval=0.05
+  
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=ifelse(SubGroup == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  
+  design <- model.matrix( ~ 0 + pheno$SubGroup)
+  rownames(design) <- rownames(pheno)
+  colnames(design) <- group_name
+
+  # show distribution
+  edata <- as.matrix(exprs(dataset))
+  exprSet <- scale(edata[, colnames(edata)%in%rownames(pheno)], center = T, scale = T)
+  
+  # Normalization: TMM
+  if(scale){
+    require(edgeR)
+    DGEList <- edgeR::DGEList(
+                        counts = exprSet, 
+                        group = pheno$SubGroup) 
+    exprSet_norm <- edgeR::calcNormFactors(DGEList, method = "TMM")
+    plotMDS(exprSet_norm, col=as.numeric(pheno$SubGroup))
+  }else{
+    exprSet_norm <- exprSet
+  }
+
+  # linear fitting
+  #limma_voom <- voom(exprSet_norm, design, plot = TRUE)
+  fit <- lmFit(exprSet_norm, design)
+  group <- paste(group_name, collapse = "-")
+  if(group%in%"CRC-HC"){
+    contrast <- makeContrasts(contrasts = "CRC-HC",
+                              levels = design)
+  }else if(group%in%"CRC-AA"){
+    contrast <- makeContrasts(contrasts = "CRC-AA",
+                              levels = design)
+  }else if(group%in%"AA-HC"){
+    contrast <- makeContrasts(contrasts = "AA-HC",
+                              levels = design)
+  }    
+  print(contrast)
+  # eBayes
+  fit2 <- contrasts.fit(fit, contrast)
+  fit2 <- eBayes(fit2)
+    
+  # differential features
+  diff_gene <- topTable(fit2, number = Inf, adjust.method = 'BH', coef = 1) %>%
+    rownames_to_column("GeneID")  
+  # delta
+  require(future.apply)
+  plan(multiprocess, workers = 10)
+  delta_value <- future_apply(exprSet, 1, function(x, y){
+      dat <- data.frame(value=x, y) %>%
+        arrange(SubGroup) %>%
+        dplyr::select(SubGroup, value) 
+      dat$SubGroup <- factor(dat$SubGroup, levels = group_name)
+      
+      dat_delta <- dat %>% group_by(SubGroup) %>%
+        summarise(mean_value=mean(value)) %>% # mean or median???
+        mutate(delta=dplyr::first(mean_value) - dplyr::last(mean_value)) %>%
+        ungroup() 
+      
+      delta <- mean(dat_delta$delta)
+      return(delta)
+      
+  }, pheno) %>% data.frame() %>%
+      setNames("Delta") %>%
+      rownames_to_column("GeneID")
+    
+  # combine DEG and delta
+  diff_gene_delta <- inner_join(diff_gene, delta_value, by = "GeneID")     
+  
+  # validate the enriched directory
+  pl <- data.frame(edata)[rownames(data.frame(edata))%in%diff_gene_delta$GeneID[1], , F] %>% 
+    t() %>% data.frame() %>%
+    setNames("Gene") %>%
+    rownames_to_column("SampleID") %>%
+    inner_join(pheno%>%rownames_to_column("SampleID"), by = "SampleID") %>%
+  ggplot(aes(x=SubGroup, y=Gene))+
+    geom_boxplot()+
+    labs(y=diff_gene$GeneID[1], x="")+
+    ggpubr::stat_compare_means(method = "wilcox.test",
+                               comparisons = list(group_name))+
+    theme_bw()
+  print(pl)
+  
+  # enriched directory: It is sometimes useful to check things by hand to make sure you have the right interpretation.
+  for(i in 1:5){
+    datCoe <- fit$coefficients[diff_gene_delta$GeneID[i], ]
+    deltaMean <- as.numeric(datCoe[group_name[2]] - datCoe[group_name[1]])
+    logFC <- diff_gene_delta[diff_gene_delta$GeneID%in%diff_gene_delta$GeneID[i], "logFC"]
+    cat(paste0(diff_gene_delta$GeneID[i], ": ", paste(rev(group_name), collapse = "-"), " = ", signif(deltaMean, 3)))
+    cat("\n")
+    cat(paste0(diff_gene_delta$GeneID[i], ": ", "logFC = ", signif(logFC, 3))) 
+    cat("\n")
+  }
+
+  if((deltaMean > 0 & logFC > 0) | (deltaMean < 0 & logFC < 0)){
+    diff_gene_delta[which(diff_gene_delta$logFC >= fc & diff_gene_delta$adj.P.Val < Pval), "Enrichment"] <- group_name[2]
+    diff_gene_delta[which(diff_gene_delta$logFC <= -fc & diff_gene_delta$adj.P.Val < Pval), "Enrichment"] <- group_name[1]
+    diff_gene_delta[which(abs(diff_gene_delta$logFC) < fc | diff_gene_delta$adj.P.Val >= Pval), "Enrichment"] <- "Nonsignif"     
+  }else if((deltaMean > 0 & logFC < 0) | (deltaMean < 0 & logFC > 0)){
+    diff_gene_delta[which(diff_gene_delta$logFC >= fc & diff_gene_delta$adj.P.Val < Pval), "Enrichment"] <- group_name[1]
+    diff_gene_delta[which(diff_gene_delta$logFC <= -fc & diff_gene_delta$adj.P.Val < Pval), "Enrichment"] <- group_name[2]
+    diff_gene_delta[which(abs(diff_gene_delta$logFC) < fc | diff_gene_delta$adj.P.Val >= Pval), "Enrichment"] <- "Nonsignif"     
+  }
+  
+  # Number & Block
+  dat_status <- table(pheno$SubGroup)
+  dat_status_number <- as.numeric(dat_status)
+  dat_status_name <- names(dat_status)
+  diff_gene_delta$Block <- paste(paste(dat_status_number[1], dat_status_name[1], sep = "_"),
+                         "vs",
+                         paste(dat_status_number[2], dat_status_name[2], sep = "_"))
+  
+  res <- diff_gene_delta %>% dplyr::select(GeneID, Block, logFC, adj.P.Val, Enrichment, everything()) %>%
+    arrange(adj.P.Val, logFC) 
+  
+  print(dim(res %>% filter(Enrichment != "Nonsignif")))
+  
+  return(res)
+}
+
+# only wilcox-test
+DEA_wilcox_test <- function(dataset=ExprSet,
+                            group_name=subgrp[c(3,2,1)],
+                            Pval=0.05){
+  
+  # dataset=ExprSet
+  # group_name=subgrp[c(3,2,1)]
+  # Pval=0.05
+  
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=ifelse(SubGroup == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  
+  edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame()
+  
+  # non-Normally distributed proteins
+  res <- apply(edata, 1, function(x, y){
+    #dat <- data.frame(value=as.numeric(Non_Normal_prof[158, ]), group=pheno$SubGroup)
+    dat <- data.frame(value=as.numeric(x), group=y)
+    # mn <- tapply(dat$value, dat$group, compositions::geometricmean) %>%
+    mn <- tapply(dat$value, dat$group, mean) %>%
+      data.frame() %>% setNames("value") %>%
+      rownames_to_column("Group")
+    mn1 <- with(mn, mn[Group%in%group_name[1], "value"])
+    mn2 <- with(mn, mn[Group%in%group_name[2], "value"])
+    #Log2FC <- log2(mn1/mn2)
+    rest <- wilcox.test(data = dat, value ~ group)
+    #res <- c(Log2FC, rest$statistic, rest$p.value)
+    res <- c(mn1, mn2, rest$statistic, rest$p.value)
+    return(res)
+  }, pheno$SubGroup) %>% 
+    t() %>% data.frame() %>%
+    setNames(c(paste0("mean_", c(1, 2)), "Statistic", "P.value")) %>%
+    rownames_to_column("GeneID") %>%
+    mutate(adj.P.Val=p.adjust(as.numeric(P.value), method = "BH")) %>%
+    arrange(adj.P.Val)
+
+  # Number & Block
+  dat_status <- table(pheno$SubGroup)
+  dat_status_number <- as.numeric(dat_status)
+  dat_status_name <- names(dat_status)
+  res$Block <- paste(paste(dat_status_number[1], dat_status_name[1], sep = "_"),
+                         "vs",
+                         paste(dat_status_number[2], dat_status_name[2], sep = "_")) 
+  # Enrichment
+  res$Enrichment <- NA
+  for(i in 1:nrow(res)){
+    if (res$mean_1[i] > res$mean_2[i] & res$adj.P.Val[i] < Pval) {
+        res$Enrichment[i] <- group_name[1]
+    } else if (res$mean_1[i] < res$mean_2[i] & res$adj.P.Val[i] < Pval) {
+        res$Enrichment[i] <- group_name[2]
+    } else if (res$adj.P.Val[i] > Pval | res$mean_1[i] == res$mean_2[i]){
+        res$Enrichment[i] <- "Nonsignif"
+    }    
+  }
+  
+  colnames(res)[2:3] <- paste0(group_name, "_mean")
+  
+  res_final <- res %>% dplyr::select(GeneID, Block, adj.P.Val, Enrichment, everything()) %>%
+    arrange(adj.P.Val) 
+  
+  return(res_final)
+}
+
+if(!dir.exists("../../Result/Biomarker/RF_model/")){
+  dir.create("../../Result/Biomarker/RF_model/", recursive = T)
+}
+```
+
+
+### CRC vs HC 
+```{r}
+# T-test/Wilcox-test
+CRC_HC_DEA <- DEA_test(
+                 dataset=ExprSet,
+                 group_name=subgrp[c(1, 3)],
+                 Pval=0.05,
+                 logFC=0)
+write.csv(CRC_HC_DEA, "../../Result/Biomarker/RF_model/CRC_HC_DEA.csv", row.names = F)
+
+
+# limma
+CRC_HC_DEA_limma <- get_DiffProtein_limma(
+                    dataset    = ExprSet,
+                    group_name = subgrp[c(3, 1)],
+                    scale     = FALSE,
+                    Pval      = 0.05,
+                    fc        = 0.5)
+write.csv(CRC_HC_DEA_limma, "../../Result/Biomarker/RF_model/CRC_HC_DEA_limma.csv", row.names = F)
+
+
+# wilcox
+CRC_HC_DEA_wilcox <- DEA_wilcox_test(
+                       dataset=ExprSet,
+                       group_name=subgrp[c(1, 3)],
+                       Pval=0.05)
+write.csv(CRC_HC_DEA_wilcox, "../../Result/Biomarker/RF_model/CRC_HC_DEA_wilcox.csv", row.names = F)
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+

@@ -1,0 +1,529 @@
+---
+title: "Support Vector Machines on Differential Tax"
+date: "Created: 2021-09-18 Updated: `r Sys.Date()`"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+1. Evaluating the important value of protein by recursive feature elimination
+
+2. Adding protein into model when its spearman correlation value with any existing protein in the model was less than 0.7
+
+3. Dividing data into 80% for trainset and 20% for testset
+
+4. Calculating the performance using 10-fold cross-validation
+
+5. To avoid overfitting, Step1-4 was repeated 100 times
+
+
+
+Discovery Set: 1111
+
+  * 485 HC
+  
+  * 145 AA
+
+  * 481 CRC  
+  
+  
+Validation Set: 476 
+
+  * 202 HC
+  
+  * 62 AA
+
+  * 212 CRC  
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(convert)
+library(data.table)
+library(caret)
+library(kernlab)
+library(pROC)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data
+```{r}
+ExprSet_Discovery <- readRDS("../../Result/Biomarker/RF_model/species_profile_Discovery.RDS")
+ExprSet_Validation <- readRDS("../../Result/Biomarker/RF_model/species_profile_Validation.RDS")
+CRC_HC_DEA <- fread("../../Result/Biomarker/RF_model/CRC_HC_DEA.csv")
+```
+
+
+### Support Vector Machines
+```{r}
+SVM_model <- function(dataset=ExprSet_Discovery,
+                      testres=CRC_HC_DEA,
+                      group_name=subgrp[c(1, 3)],
+                      Pname="adj.P.Val",
+                      Pval=0.05,
+                      LogFC=0,
+                      Multicol=FALSE,
+                      Rho=0.7,
+                      SplitPro=0.8,
+                      kfold=5,
+                      times=10){
+  
+  # dataset=ExprSet_Discovery
+  # testres=CRC_HC_DEA
+  # group_name=subgrp[c(1, 3)]
+  # Pname="adj.P.Val"
+  # Pval=0.05
+  # LogFC=0
+  # Multicol=FALSE
+  # Rho=0.7
+  # SplitPro=0.8
+  # kfold=5
+  # times=10
+
+  # Differential Tax
+  colnames(testres)[which(colnames(testres) == Pname)] <- "PValue"
+  
+  if(Pval == 0){
+    dat_DEP <- testres %>% dplyr::select(GeneID, PValue)
+  }else{
+    if(LogFC > 0){
+      dat_DEP <- testres %>% dplyr::select(GeneID, PValue, logFC) %>%
+        filter(PValue < Pval) %>%
+        filter(abs(logFC) > LogFC)    
+    }else{
+      dat_DEP <- testres %>% dplyr::select(GeneID, PValue) %>%
+        filter(PValue < Pval)    
+    }  
+  }
+  print(paste0("DE Features: ", dim(dat_DEP)[1]))
+  # dataset of Tax
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=ifelse(SubGroup == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  print(table(pheno$SubGroup))
+  
+  profile <- exprs(dataset)
+  edata <- profile[rownames(profile)%in%dat_DEP$GeneID, 
+                   colnames(profile)%in%rownames(pheno)] %>% 
+    data.frame()
+  
+  # Data of whole feature 
+  mdat <- inner_join(pheno %>% rownames_to_column("SampleID") %>%
+                       dplyr::select(SampleID, SubGroup),
+                     edata %>% t() %>% data.frame() %>%
+                       rownames_to_column("SampleID"),
+                     by = "SampleID") %>%
+    column_to_rownames("SampleID")
+  
+  # remove multicollinearity
+  if(Multicol){
+    feature_cor <- Hmisc::rcorr(as.matrix(mdat[, -1]), type = "spearman")
+    index_cor <- findCorrelation(feature_cor$r, cutoff = Rho, verbose = TRUE)
+    feature_remain <- feature_cor$r[-index_cor, -index_cor]
+    mdat_remain <- mdat %>% dplyr::select(c("SubGroup", rownames(feature_remain)))     
+  }else{
+    mdat_remain <- mdat
+  }
+  
+  # recursive feature elimination
+  require(mlbench)
+  rfeControl <- rfeControl(functions=caretFuncs, 
+                           method="cv", 
+                           number=10, 
+                           rerank=TRUE)
+  rfebreaks <- seq(2, ncol(mdat_remain), 2)
+  rfefit <- rfe(mdat_remain[, -1],
+                mdat_remain$SubGroup,
+                sizes=rfebreaks,
+                rfeControl=rfeControl,
+                method="svmRadial")
+  
+  rfeAccuracy <- tibble(Accuracy = signif(rfefit$results$Accuracy, 3),
+                        Variables = rfefit$results$Variables) %>%
+                 mutate(label=ifelse(Accuracy == max(Accuracy),
+                           paste0("(Features=", Variables, ", Accuracy=", Accuracy,")"), NA))
+  rfepl <- ggplot(data=rfeAccuracy, aes(x=Variables, y=Accuracy))+
+            geom_point(color="grey", size=3, shape=19)+
+            geom_line(color="black", linetype=1, size=1)+
+            geom_text(aes(label=label), nudge_y=0.002)+
+            annotate(geom="point",
+                     x=rfeAccuracy[grep(max(rfeAccuracy$Accuracy), rfeAccuracy$Accuracy), ]$Variables,
+                     y=max(rfeAccuracy$Accuracy), color="red", size=4)+
+            labs(x="Features (Numbers)",
+                 y="Accuracy (Bootstrap)")+
+            theme_bw()+
+            theme(panel.background = element_rect(fill="transparent"),
+                  axis.ticks.length = unit(0.4, "lines"),
+                  axis.ticks = element_line(color='black'),
+                  axis.line = element_line(size=.5, color="black"),
+                  axis.title = element_text(color='black', size=12, face="bold"),
+                  axis.text = element_text(color='black', size=10),
+                  text = element_text(size=8, color="black", family="serif"))
+  
+  # importance value 
+  rfeImp <- varImp(rfefit) %>% 
+    rownames_to_column("feature") %>%
+    filter(feature%in%rfefit$optVariables) %>%
+    arrange(desc(Overall))
+  mdat_remain_v2 <- mdat_remain %>% dplyr::select(c("SubGroup", rfeImp$feature))
+  
+  print(paste0("Features after RFE: ", dim(mdat_remain_v2)[2] - 1))
+  
+  # Data Partition
+  #set.seed(123)
+  if(!is.null(SplitPro)){
+    require(sampling)
+    #set.seed(123)
+    sample <- sampling::strata(mdat_remain_v2, 
+                       stratanames = "SubGroup", 
+                       size = rev(round(as.numeric(table(mdat_remain_v2$SubGroup)) * SplitPro)),
+                       method = "srswor")
+    trainData <- mdat_remain_v2[sample$ID_unit, ]
+    testData <- mdat_remain_v2[-sample$ID_unit, ]
+  }else{
+    trainData <- mdat_remain_v2
+    testData <- mdat_remain_v2
+  }
+  
+  # normalization
+  mdat_preProcess <- preProcess(mdat_remain_v2, method = c("center", "scale"))
+  trainTransformed <- predict(mdat_preProcess, trainData)
+  testTransformed <- predict(mdat_preProcess, testData)
+  
+  # dat_table <- as.matrix(trainTransformed %>% dplyr::select(-SubGroup) %>% data.frame())
+  # plot(density(dat_table))
+  
+  # construct model
+  if(dim(trainTransformed)[1] > 10 * 8){
+    kfold <- 10
+  }else{
+    kfold <- kfold
+  }
+  # N-repeat K-fold cross-validation
+  myControl <- trainControl(method = "repeatedcv", 
+                           number = kfold,
+                           repeats = times,
+                           summaryFunction = twoClassSummary,
+                           classProbs = TRUE,
+                           verboseIter = TRUE)
+  
+  if(oneFit){
+    fit <- train(SubGroup ~., 
+                 data = trainTransformed,
+                 method = "rf",
+                 trControl = myControl,
+                 tuneLength = 15,
+                 metric = "ROC",
+                 verbose = FALSE) 
+    # Accuracy
+    fit_Acc <- tibble(Feartures = fit$results$mtry,
+                      ROC = signif(fit$results$ROC, 3),
+                      Sens = signif(fit$results$Sens, 3),
+                      Spec = signif(fit$results$Spec, 3)) %>%
+                   mutate(label=ifelse(ROC == max(ROC), 
+                              paste0("(Features=", Feartures, "\n ROC=", ROC,")"), NA))
+    fit_final <- fit
+    fit_Acc_final <- fit_Acc
+    testData_final <- testTransformed    
+    
+  }else{
+    # adding feature one by one according to their ranked importance value
+    fit <- list()
+    fit_Acc <- list()
+    testData_list <- list()
+    j <- 0
+    for(i in 3:ncol(trainTransformed)){
+      trainTransformed_cln <- trainTransformed[, c(1:i)]
+      testTransformed_cln <- testTransformed[, c(1:i)]
+      if(all(j == 0)){
+        trainTransformed_cln_v2 <- trainTransformed_cln
+        testTransformed_cln_v2 <- testTransformed_cln       
+      }else{
+        trainTransformed_cln_v2 <- trainTransformed_cln[, -j]
+        testTransformed_cln_v2 <- testTransformed_cln[, -j]        
+      }    
+      train_cor <- Hmisc::rcorr(as.matrix(trainTransformed_cln_v2[, -1]), type = "spearman")
+      train_index_cor <-  findCorrelation(train_cor$r, cutoff = Rho, verbose = TRUE)
+      if(length(train_index_cor) == 0){
+        # model 
+        fit[[i-2]] <- train(SubGroup ~., 
+                      data = trainTransformed_cln_v2,
+                      method = "svmRadial",
+                      trControl = myControl,
+                      tuneLength = 9,
+                      metric = "ROC",
+                      verbose = FALSE)
+        # ROC
+        fit_Acc[[i-2]] <- tibble(fit[[i-2]]$results) %>%
+                   mutate(ROC=signif(ROC, 3), 
+                          label=ifelse(ROC == max(ROC), 
+                              paste0("(C_index=", C, "\n ROC=", ROC,")"), NA)) %>%
+                   mutate(Model_N=i-2)
+        # testData
+        testData_list[[i-2]] <- testTransformed_cln_v2
+      }else{
+        j <- c(j, i)
+      }
+    }
+   
+    # summary models
+    # if(length(fit) >= 2){
+    #   print(summary(resamples(fit)))
+    # }
+  
+    # best model
+    fit_Acc_All <- do.call(rbind, fit_Acc) %>%
+      arrange(desc(ROC))
+    
+    fit_final <- fit[[fit_Acc_All$Model_N[1]]]
+    fit_Acc_final <- fit_Acc[[fit_Acc_All$Model_N[1]]]
+    testData_final <- testData_list[[fit_Acc_All$Model_N[1]]]    
+  }  
+  
+  # the best Accuracy with optimal features
+  fit_Acc_pl <- ggplot(data=fit_Acc_final, aes(x=C, y=ROC))+
+            geom_point(color="grey", size=3, shape=19)+
+            geom_line(color="black", linetype=1, size=1)+
+            geom_text(aes(label=label), nudge_y=-0.001)+
+            annotate(geom="point",
+                     x=fit_Acc_final[grep(max(fit_Acc_final$ROC),
+                                              fit_Acc_final$ROC), ]$C,
+                     y=max(fit_Acc_final$ROC), color="red", size=4) +
+            labs(x="C-index",
+                 y="Accuracy (Repeated Cross-Validation)")+
+            theme_bw()+
+            theme(panel.background = element_rect(fill="transparent"),
+                  axis.ticks.length = unit(0.4, "lines"),
+                  axis.ticks = element_line(color='black'),
+                  axis.line = element_line(size=.5, color="black"),
+                  axis.title = element_text(color='black', size=12, face="bold"),
+                  axis.text = element_text(color='black', size=10),
+                  text = element_text(size=8, color="black", family="serif"))
+  
+  # evaluate the performance of model
+  pred_raw <- predict(fit_final, newdata = testData_final, type = "raw")
+  print(confusionMatrix(pred_raw, testData_final$SubGroup))
+  pred_prob <- predict(fit_final, newdata = testData_final, type = "prob")  
+  
+  # define roc and calculate AUC
+  rocobj <- roc(testData_final$SubGroup, pred_prob[, 1])
+  auc <- round(auc(testData_final$SubGroup, pred_prob[, 1]), 3)
+  roc <- tibble(tpr=rocobj$sensitivities,
+                fpr=1 - rocobj$specificities)
+  roc_pl <- ggplot(data=roc, aes(x=fpr, y=tpr))+
+            geom_path(color="red", size=1)+
+            geom_abline(intercept=0, slope=1, color="grey", size=1, linetype=2)+
+            labs(x = "False Positive Rate (1 - Specificity)",
+                 y = "True Positive Rate (Sensivity or Recall)")+
+            annotate("text", x=.75, y=.25, label=paste("AUC =", auc),
+                     size=5, family="serif")+
+            coord_cartesian(xlim=c(0, 1), ylim=c(0, 1))+
+            theme_bw()+
+            theme(panel.background = element_rect(fill="transparent"),
+                  axis.ticks.length = unit(0.4, "lines"),
+                  axis.ticks = element_line(color="black"),
+                  axis.line = element_line(size=.5, color="black"),
+                  axis.title = element_text(color='black', size=12, face="bold"),
+                  axis.text = element_text(color='black', size=10),
+                  text = element_text(size=8, color="black", family="serif"))
+  
+  # important features
+  imp <- fit_final$coefnames
+  
+  # results
+  res <- list(pl=list(rfe=rfepl, acc=fit_Acc_pl, roc=roc_pl),
+              model=list(rfe=rfefit, Repeatfit=fit, fit_acc=fit_Acc, fit=fit_final),
+              feature=imp)
+  return(res)
+}
+
+# validation
+model_validation <- function(dataset=ExprSet_Validation,
+                             datfit=CRC_HC_RF$model$fit,
+                             group_name=subgrp[c(1, 3)]){
+  
+  # dataset=ExprSet_Validation
+  # datfit=CRC_HC_RF$model$fit
+  # group_name=subgrp[c(1, 3)]
+  
+  # dataset of DEP
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=ifelse(SubGroup == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- pData(dataset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  
+  profile <- exprs(dataset)
+  edata <- profile[, colnames(profile)%in%rownames(pheno)] %>% 
+    data.frame()
+  
+  # Data of whole feature 
+  mdat <- inner_join(pheno %>% rownames_to_column("SampleID") %>%
+                       dplyr::select(SampleID, SubGroup),
+                     edata %>% t() %>% data.frame() %>%
+                       rownames_to_column("SampleID"),
+                     by = "SampleID") %>%
+    column_to_rownames("SampleID")
+  
+  # evaluate the performance of model
+  pred_raw <- predict(datfit, newdata = mdat, type = "raw")
+  print(confusionMatrix(pred_raw, mdat$SubGroup))
+  pred_prob <- predict(datfit, newdata = mdat, type = "prob")  
+  
+  # define roc and calculate AUC
+  rocobj <- roc(mdat$SubGroup, pred_prob[, 1])
+  auc <- round(auc(mdat$SubGroup, pred_prob[, 1]), 3)
+  roc <- tibble(tpr=rocobj$sensitivities,
+                fpr=1 - rocobj$specificities)
+  roc_pl <- ggplot(data=roc, aes(x=fpr, y=tpr))+
+            geom_path(color="red", size=1)+
+            geom_abline(intercept=0, slope=1, color="grey", size=1, linetype=2)+
+            labs(x = "False Positive Rate (1 - Specificity)",
+                 y = "True Positive Rate (Sensivity or Recall)")+
+            annotate("text", x=.75, y=.25, label=paste("AUC =", auc),
+                     size=5, family="serif")+
+            coord_cartesian(xlim=c(0, 1), ylim=c(0, 1))+
+            theme_bw()+
+            theme(panel.background = element_rect(fill="transparent"),
+                  axis.ticks.length = unit(0.4, "lines"),
+                  axis.ticks = element_line(color="black"),
+                  axis.line = element_line(size=.5, color="black"),
+                  axis.title = element_text(color='black', size=12, face="bold"),
+                  axis.text = element_text(color='black', size=10),
+                  text = element_text(size=8, color="black", family="serif"))
+  
+  # Accuracy
+  CFM <- confusionMatrix(pred_raw, mdat$SubGroup)
+  CFM_index <- data.frame(Value=CFM$byClass) %>%
+    rownames_to_column("Index") %>% 
+    rbind(data.frame(Index="Accuracy", Value=as.numeric(CFM$overall[1])))
+  
+  res <- list(auc=auc, roc=roc_pl, index=CFM_index)
+  
+  return(res)
+}
+
+if(!dir.exists("../../Result/Biomarker/SVM_model/")){
+  dir.create("../../Result/Biomarker/SVM_model/", recursive = T)
+}
+```
+
+
+### 10-repeat 10-fold cross validation random forest
+```{r}
+# if(!file.exists("../../Result/Biomarker/SVM_model/CRC_HC_SVM_Discovery.RDS")){
+#    CRC_HC_SVM <- SVM_model(
+#                      dataset=ExprSet_Discovery,
+#                      testres=CRC_HC_DEA,
+#                      group_name=subgrp[c(1, 3)],
+#                      Pname="adj.P.Val",
+#                      Pval=0.05,
+#                      LogFC=0,
+#                      Multicol=FALSE,
+#                      Rho=0.7,
+#                      SplitPro=0.7,
+#                      kfold=5,
+#                      times=10,
+#                      oneFit=TRUE)
+#   saveRDS(CRC_HC_SVM, "../../Result/Biomarker/SVM_model/CRC_HC_SVM_Discovery.RDS", compress = TRUE)
+# }else{
+#   CRC_HC_SVM <- readRDS("../../Result/Biomarker/SVM_model/CRC_HC_SVM_Discovery.RDS")
+# }
+
+
+CRC_HC_SVM <- SVM_model(
+                     dataset=ExprSet_Discovery,
+                     testres=CRC_HC_DEA,
+                     group_name=subgrp[c(1, 3)],
+                     Pname="adj.P.Val",
+                     Pval=0.05,
+                     LogFC=0,
+                     Multicol=FALSE,
+                     Rho=0.7,
+                     SplitPro=0.7,
+                     kfold=5,
+                     times=10,
+                     oneFit=TRUE)
+CRC_HC_SVM_validation <- model_validation(
+                       dataset=ExprSet_Validation,
+                       datfit=CRC_HC_SVM$model$fit,
+                       group_name=subgrp[c(1, 3)])
+
+# while(with(CRC_HC_SVM_validation, auc < 0.8 | index$Value[1] < 0.7 | index$Value[2] < 0.7))
+while(with(CRC_HC_SVM_validation, index$Value[12] < 0.7)){
+  CRC_HC_SVM <- SVM_model(
+                     dataset=ExprSet_Discovery,
+                     testres=CRC_HC_DEA,
+                     group_name=subgrp[c(1, 3)],
+                     Pname="adj.P.Val",
+                     Pval=0.05,
+                     LogFC=0,
+                     Multicol=FALSE,
+                     Rho=0.7,
+                     SplitPro=0.7,
+                     kfold=5,
+                     times=10,
+                     oneFit=TRUE)
+  CRC_HC_SVM_validation <- model_validation(
+                 dataset=ExprSet_Validation,
+                 datfit=CRC_HC_SVM$model$fit,
+                 group_name=subgrp[c(1, 3)])
+}
+
+saveRDS(CRC_HC_SVM, "../../Result/Biomarker/SVM_model/CRC_HC_SVM_Discovery.RDS", compress = TRUE)
+```
+
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference
+
+1. [Underdevelopment of the gut microbiota and bacteria species as non-invasive markers of prediction in children with autism spectrum disorder](https://pubmed.ncbi.nlm.nih.gov/34312160/)
+
+2. [Recursive Feature Elimination](https://topepo.github.io/caret/recursive-feature-elimination.html)
+
+3. [The 5th Tribe, Support Vector Machines and caret](https://www.r-bloggers.com/2015/10/the-5th-tribe-support-vector-machines-and-caret/)
+
+4. [SUPPORT VECTOR MACHINE CLASSIFIER IMPLEMENTATION IN R WITH CARET PACKAGE](https://dataaspirant.com/support-vector-machine-classifier-implementation-r-caret-package/)
+

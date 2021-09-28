@@ -1,0 +1,132 @@
+---
+title: "Download data by curatedMetagenomicData R packages"
+date: "Created: 2021-09-17 Updated: `r Sys.Date()`"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+Integration of Colorectal Cancer metagenomic dataset to identify the potential biomarkers
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(curatedMetagenomicData)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Download data function
+```{r}
+#curatedMetagenomicData("ZellerG*")
+get_profile <- function(Disease="CRC",
+                        Datype="relative_abundance"){
+  
+  # Disease="CRC"
+  # Datype="relative_abundance"
+  
+  # Choosing disease
+  phenotype <-  curatedMetagenomicData::sampleMetadata %>% 
+    filter(disease%in%Disease) 
+  study_list <- unique(phenotype$study_name)
+  # print(study_list)
+  
+  # get the names of profile
+  study_profile_list <- c()
+  datset_list <- list()
+  for(i in 1:length(study_list)){
+    datatype <- paste0(study_list[i], ".", Datype)
+    name <- grep(study_list[i], curatedMetagenomicData(datatype, dryrun=TRUE), value=T)
+    print(name)
+    datset <- curatedMetagenomicData(name, dryrun=FALSE, counts=FALSE)
+    
+    datset_name <- names(datset)
+    names(datset) <- "relative_abundance"
+    study_profile_list <- c(study_profile_list, name)
+    datset_list[[i]] <- datset$relative_abundance
+    names(datset_list)[[i]] <- datset_name
+  }
+  
+  # get the datset of profile
+  #datset <- curatedMetagenomicData(study_profile_list, dryrun=FALSE)
+  if(length(datset_list) > 1){
+    datset_final <- curatedMetagenomicData::mergeData(datset_list)
+  }else{
+    datset_final <- datset_list
+  }
+  
+  return(datset_final)
+}
+
+if(!dir.exists("../../Study/curatedMetagenomicData/")){
+  dir.create("../../Study/curatedMetagenomicData/", recursive = T)
+}
+```
+
+
+### relative_abundance
+```{r}
+relative_abundance <- get_profile(Disease="CRC", Datype="relative_abundance")
+relative_abundance
+saveRDS(relative_abundance, "../../Study/curatedMetagenomicData/CRC_relative_abundance_Origin.RDS", compress = TRUE)
+```
+
+
+### gene_families
+```{r}
+gene_families <- get_profile(Disease="CRC", Datype="gene_families")
+gene_families
+saveRDS(gene_families, "../../Study/curatedMetagenomicData/CRC_gene_families_Origin.RDS", compress = TRUE)
+```
+
+
+### marker_abundance
+```{r}
+marker_abundance <- get_profile(Disease="CRC", Datype="marker_abundance")
+marker_abundance
+saveRDS(marker_abundance, "../../Study/curatedMetagenomicData/CRC_marker_abundance_Origin.RDS", compress = TRUE)
+```
+
+
+### marker_presence
+```{r}
+marker_presence <- get_profile(Disease="CRC", Datype="marker_presence")
+marker_presence
+saveRDS(marker_presence, "../../Study/curatedMetagenomicData/CRC_marker_presence_Origin.RDS", compress = TRUE)
+```
+
+
+### pathway_abundance
+```{r}
+pathway_abundance <- get_profile(Disease="CRC", Datype="pathway_abundance")
+pathway_abundance
+saveRDS(pathway_abundance, "../../Study/curatedMetagenomicData/CRC_pathway_abundance_Origin.RDS", compress = TRUE)
+```
+
+
+### pathway_coverage
+```{r}
+pathway_coverage <- get_profile(Disease="CRC", Datype="pathway_coverage")
+pathway_coverage
+saveRDS(pathway_coverage, "../../Study/curatedMetagenomicData/CRC_pathway_coverage_Origin.RDS", compress = TRUE)
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+
+
+1. [curatedMetagenomicData](http://bioconductor.org/packages/release/data/experiment/vignettes/curatedMetagenomicData/inst/doc/curatedMetagenomicData.html#installation)

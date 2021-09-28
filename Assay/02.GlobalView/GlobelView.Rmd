@@ -1,0 +1,270 @@
+---
+title: "Dimensionality Reduction Analysis"
+date: "Created: 2021-09-17 Updated: `r Sys.Date()`"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+options(warn = 0)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(vegan)
+options(warn = 0)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+```
+
+
+### Principal Coordinates Analysis
+```{r, fig.width=8, fig.height=6}
+PCoAFun <- function(dataset=ExprSet,
+                    group_info="SubGroup",
+                    group_name=subgrp){
+  
+  # dataset=ExprSet
+  # group_info="SubGroup"
+  # group_name=subgrp
+  
+  require(convert)
+  metadata <- pData(dataset)
+  profile <- t(exprs(dataset))
+  colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"
+  
+  require(ape)
+  require(vegan)
+  pcoa <- pcoa(vegdist(profile, method = "bray"))
+  eig <- pcoa$values[, "Eigenvalues"]
+  eig_var <- eig[1:2]
+  eig_var_explain <- round(eig_var/sum(eig), 4) * 100   
+  # explains variable 
+  explains <- paste0(paste0("PCoA", seq(2)), " (", paste0(eig_var_explain, "%"), ")")
+  # principal component score of each sample
+  score <- inner_join(pcoa$vectors[, c(1:2)] %>% data.frame() %>%
+                        setNames(paste0("PCoA", seq(2))) %>%
+                        rownames_to_column("SampleID"), 
+                      metadata %>% rownames_to_column("SampleID"),
+                      by = "SampleID") %>%
+    mutate(Group=factor(Group, levels = group_name))
+  
+  
+  # PERMANOVA
+  set.seed(123)
+  if(any(profile < 0)){
+    res_adonis <- adonis(vegdist(profile, method = "manhattan") ~ metadata$Group, permutations = 999) 
+  }else{
+    res_adonis <- adonis(vegdist(profile, method = "bray") ~ metadata$Group, permutations = 999)    
+  }
+  adn_pvalue <- res_adonis[[1]][["Pr(>F)"]][1]
+  adn_rsquared <- round(res_adonis[[1]][["R2"]][1],3)
+  #use the bquote function to format adonis results to be annotated on the ordination plot.
+  signi_label <- paste(cut(adn_pvalue,breaks=c(-Inf, 0.001, 0.01, 0.05, Inf), label=c("***", "**", "*", ".")))
+  adn_res_format <- bquote(atop(atop("PERMANOVA",R^2==~.(adn_rsquared)),
+                                  atop("p-value="~.(adn_pvalue)~.(signi_label), phantom()))) 
+  
+  pl <- ggplot(score, aes(x=PCoA1, y=PCoA2))+
+              geom_point(aes(fill=Group), size=3.5, shape=21, stroke = .8, color = "black")+
+              stat_ellipse(aes(color=Group), level = 0.95, linetype = 1, size = 1.5)+
+              labs(x=explains[1], y=explains[2])+
+              scale_color_manual(values = grp.col)+
+              scale_fill_manual(name = "Condition", 
+                                values = grp.col)+
+              annotate("text", x = max(score$PCoA1) ,
+                       y = min(score$PCoA1),
+                       label = adn_res_format,
+                       size = 6)+ 
+              guides(color="none")+
+              theme_classic()+
+              theme(axis.title = element_text(size = 10, color = "black", face = "bold"),
+                    axis.text = element_text(size = 9, color = "black"),
+                    text = element_text(size = 8, color = "black", family = "serif"),
+                    strip.text = element_text(size = 9, color = "black", face = "bold"), 
+                    panel.grid = element_blank(),
+                    legend.title = element_text(size = 11, color = "black", family = "serif"),
+                    legend.text = element_text(size = 10, color = "black", family = "serif"),
+                    legend.position = c(0, 0),
+                    legend.justification = c(0, 0),
+                    legend.background = element_rect(color = "black", fill = "white", linetype = 2, size = 0.5))
+  return(pl)
+}
+
+PCoAFun(dataset = ExprSet)
+```
+
+
+### Rtsne
+```{r, fig.width=8, fig.height=6}
+RtsneFun <- function(dataset=ExprSet,
+                     perpl=30,
+                     group_info="SubGroup",
+                     group_name=subgrp){
+  
+  # dataset=ExprSet
+  # perpl=50
+  # group_info="SubGroup"
+  # group_name=subgrp
+  
+  require(convert)
+  metadata <- pData(dataset)
+  profile <- t(exprs(dataset))
+  colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"
+  
+  # Rtsne
+  require(Rtsne)
+  set.seed(123)
+  Rtsne <- Rtsne(profile,  # each row is an observation(samples), each column is a variable(features)
+                 dims=2, 
+                 perplexity=perpl,
+                 verbose=TRUE, 
+                 max_iter=500, 
+                 eta=200)
+  point <- Rtsne$Y %>% data.frame() %>% 
+    dplyr::select(c(1:2)) %>%
+    setNames(c("tSNE1", "tSNE2"))
+  rownames(point) <- rownames(profile)
+  score <- inner_join(point %>% rownames_to_column("SampleID"), 
+                      metadata %>% rownames_to_column("SampleID"),
+                      by = "SampleID") %>%
+    mutate(Group=factor(Group, levels = group_name))
+  
+  # PERMANOVA
+  require(vegan)
+  set.seed(123)
+  if(any(profile < 0)){
+    res_adonis <- adonis(vegdist(profile, method = "manhattan") ~ metadata$Group, permutations = 999) 
+  }else{
+    res_adonis <- adonis(vegdist(profile, method = "bray") ~ metadata$Group, permutations = 999)    
+  }
+  adn_pvalue <- res_adonis[[1]][["Pr(>F)"]][1]
+  adn_rsquared <- round(res_adonis[[1]][["R2"]][1],3)
+  #use the bquote function to format adonis results to be annotated on the ordination plot.
+  signi_label <- paste(cut(adn_pvalue,breaks=c(-Inf, 0.001, 0.01, 0.05, Inf), label=c("***", "**", "*", ".")))
+  adn_res_format <- bquote(atop(atop("PERMANOVA",R^2==~.(adn_rsquared)),
+                                  atop("p-value="~.(adn_pvalue)~.(signi_label), phantom()))) 
+  
+  pl <- ggplot(score, aes(x=tSNE1, y=tSNE2))+
+              geom_point(aes(fill=Group), size=3.5, shape=21, stroke = .8, color = "black")+
+              stat_ellipse(aes(color=Group), level = 0.95, linetype = 1, size = 1.5)+
+              scale_color_manual(values = grp.col)+
+              scale_fill_manual(name = "Condition", 
+                                values = grp.col)+
+              annotate("text", x = max(score$tSNE1) - 8,
+                       y = max(score$tSNE2)-5,
+                       label = adn_res_format,
+                       size = 6)+ 
+              guides(color=F)+
+              theme_classic()+
+              theme(axis.title = element_text(size = 10, color = "black", face = "bold"),
+                    axis.text = element_text(size = 9, color = "black"),
+                    text = element_text(size = 8, color = "black", family = "serif"),
+                    strip.text = element_text(size = 9, color = "black", face = "bold"), 
+                    panel.grid = element_blank(),
+                    legend.title = element_text(size = 11, color = "black", family = "serif"),
+                    legend.text = element_text(size = 10, color = "black", family = "serif"),
+                    legend.position = c(0, 0),
+                    legend.justification = c(0, 0),
+                    legend.background = element_rect(color = "black", fill = "white", linetype = 2, size = 0.5))
+  return(pl)
+}
+
+RtsneFun(dataset = ExprSet)
+```
+
+
+### UMAP: a non-linear dimensionality reduction algorithm
+```{r, fig.width=8, fig.height=6}
+UMAPFun <- function(dataset=ExprSet,
+                    group_info="SubGroup",
+                    group_name=subgrp){
+  
+  # dataset=ExprSet
+  # group_info="SubGroup"
+  # group_name=subgrp
+  
+  require(convert)
+  metadata <- pData(dataset)
+  profile <- t(exprs(dataset))
+  colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"  
+  # umap 
+  require(umap)
+  umap <- umap::umap(profile)
+  
+  point <- umap$layout %>% data.frame() %>%
+    setNames(c("UMAP1", "UMAP2"))
+  rownames(point) <- rownames(profile)
+  score <- inner_join(point %>% rownames_to_column("SampleID"), 
+                      metadata %>% rownames_to_column("SampleID"),
+                      by = "SampleID") %>%
+    mutate(Group=factor(Group, levels = group_name))
+  
+  # PERMANOVA
+  require(vegan)
+  set.seed(123)
+  if(any(profile < 0)){
+    res_adonis <- adonis(vegdist(profile, method = "manhattan") ~ metadata$Group, permutations = 999) 
+  }else{
+    res_adonis <- adonis(vegdist(profile, method = "bray") ~ metadata$Group, permutations = 999)    
+  }
+  adn_pvalue <- res_adonis[[1]][["Pr(>F)"]][1]
+  adn_rsquared <- round(res_adonis[[1]][["R2"]][1],3)
+  #use the bquote function to format adonis results to be annotated on the ordination plot.
+  signi_label <- paste(cut(adn_pvalue,breaks=c(-Inf, 0.001, 0.01, 0.05, Inf), label=c("***", "**", "*", ".")))
+  adn_res_format <- bquote(atop(atop("PERMANOVA",R^2==~.(adn_rsquared)),
+                                  atop("p-value="~.(adn_pvalue)~.(signi_label), phantom())))   
+  
+  pl <- ggplot(score, aes(x=UMAP1, y=UMAP2))+
+              geom_point(aes(fill=Group), size=3.5, shape=21, stroke = .8, color = "black")+
+              stat_ellipse(aes(color=Group), level = 0.95, linetype = 1, size = 1.5)+
+              scale_color_manual(values = grp.col)+
+              scale_fill_manual(name = "Condition", 
+                                values = grp.col)+
+              annotate("text", x = max(score$UMAP1),
+                       y = min(score$UMAP2),
+                       label = adn_res_format,
+                       size = 6)+ 
+              guides(color=F)+
+              theme_classic()+
+              theme(axis.title = element_text(size = 10, color = "black", face = "bold"),
+                    axis.text = element_text(size = 9, color = "black"),
+                    text = element_text(size = 8, color = "black", family = "serif"),
+                    strip.text = element_text(size = 9, color = "black", face = "bold"), 
+                    panel.grid = element_blank(),
+                    legend.title = element_text(size = 11, color = "black", family = "serif"),
+                    legend.text = element_text(size = 10, color = "black", family = "serif"),
+                    legend.position = c(0, 0),
+                    legend.justification = c(0, 0),
+                    legend.background = element_rect(color = "black", fill = "white", linetype = 2, size = 0.5))
+  return(pl)
+}
+
+UMAPFun(dataset = ExprSet)
+```
+
+
+### Systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference 
+
+1. [How to change Legend of ggplot2](http://www.sthda.com/english/wiki/ggplot2-legend-easy-steps-to-change-the-position-and-the-appearance-of-a-graph-legend-in-r-software)
+
+2. [How to change ggplot facet labels](https://www.datanovia.com/en/blog/how-to-change-ggplot-facet-labels/)

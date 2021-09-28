@@ -1,0 +1,232 @@
+---
+title: "STAMP"
+date: "Created: 2021-09-18 Modified: `r Sys.Date()`"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(tidyverse)
+library(patchwork)
+library(tibble)
+library(ggplot2)
+library(data.table)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+table(pData(ExprSet)$SubGroup)
+```
+
+
+### Function
+```{r}
+STAMP_fun <- function(dataset=ExprSet,
+                      group_info="SubGroup",
+                      group_name=subgrp[c(3,1)],
+                      group_col=grp.col[c(3,1)],
+                      Pval=0.05,
+                      num=20){
+  
+  # dataset=ExprSet
+  # group_info="SubGroup"
+  # group_name=subgrp[c(3,1)]
+  # group_col=grp.col[c(3,1)]
+  # Pval=0.05
+  # num=20
+  
+  phenotype <- pData(dataset)
+  profile <- exprs(dataset)
+  colnames(phenotype)[which(colnames(phenotype) == group_info)] <- "Group"
+  
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- phenotype %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(Group=factor(Group, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- phenotype %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  edata <- profile[, rownames(pheno)] %>% data.frame()  
+  
+  mdat <- inner_join(pheno %>% rownames_to_column("SampleID") %>%
+                       dplyr::select(SampleID, Group),
+                     edata %>% t() %>% data.frame() %>%
+                       rownames_to_column("SampleID"),
+                     by = "SampleID") %>%
+    column_to_rownames("SampleID")  
+  
+  diff_res <- mdat %>% 
+      select_if(is.numeric) %>%
+      map_df(~ broom::tidy(t.test(. ~ Group, data = mdat)), .id = "var") %>%
+      mutate(p.adjust=p.adjust(as.numeric(p.value), "bonferroni")) %>%
+      filter(p.adjust < Pval) %>%
+      arrange(p.adjust) %>%
+      dplyr::slice(1:num)
+  
+  abun_bar <- mdat %>% select(c(diff_res$var, "Group")) %>% 
+      gather(key = "variable", value = "value", -Group) %>% 
+      group_by(variable, Group) %>% 
+      summarise(Mean = mean(value)) %>%
+      ungroup()
+  
+  diff_res_mean <- diff_res %>% select(c("var", "estimate", 
+                                   "conf.low", "conf.high",
+                                   "p.adjust")) %>%
+                mutate(Group=ifelse(estimate >0, levels(mdat$Group)[1],
+                                        levels(mdat$Group)[2])) %>%
+                arrange(desc(estimate))
+  
+  # left barplot
+  cbbPalette <- group_col
+  abun_bar$variable <- factor(abun_bar$variable, levels=rev(diff_res_mean$var))
+  p1 <- ggplot(abun_bar, aes(x=variable, y=Mean, fill=Group))+
+            scale_x_discrete(limits=levels(diff_res_mean$var))+
+            coord_flip()+
+            xlab("")+
+            ylab("Mean proportion (%)")+
+            theme(panel.background = element_rect(fill="transparent"),
+                  panel.grid = element_blank(),
+                  axis.ticks.length = unit(0.4, "lines"), 
+                  axis.ticks = element_line(color="black"),
+                  axis.line = element_line(color="black"),
+                  axis.title.x = element_text(color="black", size=12, face="bold"),
+                  axis.text.x = element_text(color="black", size=10, face="bold"),
+                  text = element_text(size=8, color="black", family="serif"),
+                  legend.title=element_blank(),
+                  legend.text=element_text(size=12, face="bold" ,color="black",
+                                           margin=margin(r=20)),
+                  #legend.position = c(-1,-0.1),
+                  legend.position = c(-0.1, -0.05),
+                  legend.direction = "horizontal",
+                  legend.key.width = unit(0.8, "cm"),
+                  legend.key.height = unit(0.5, "cm"))
+
+  for (i in 1:(nrow(diff_res_mean) - 1)){
+      p1 <- p1 + annotate("rect", xmin=i+0.5, xmax=i+1.5, ymin=-Inf, ymax=Inf, 
+                          fill=ifelse(i %% 2 == 0, "white", "gray95"))  
+  } 
+  
+  p1 <- p1 + geom_bar(stat="identity", position="dodge", width=0.7, color="black")+
+                scale_fill_manual(values=cbbPalette)+
+                theme(axis.text.y = element_text(color="black", size=10, face="italic"))
+  
+  
+  ## right scatterplot
+  diff_res_mean$var <- factor(diff_res_mean$var, levels=levels(abun_bar$variable))
+  diff_res_mean$p.adjust <- signif(diff_res_mean$p.adjust, 3)
+  diff_res_mean$p.adjust <- as.character(diff_res_mean$p.adjust)
+  
+  p2 <- ggplot(diff_res_mean, aes(x=var, y=estimate, fill=Group))+
+          scale_x_discrete(limits=levels(diff_res_mean$var))+
+          coord_flip() +
+          xlab("") +
+          ylab("Difference in mean proportions (%)")+
+          labs(title="95% confidence intervals")+ 
+          theme(panel.background = element_rect(fill="transparent"),
+            panel.grid = element_blank(),
+            axis.ticks.length = unit(0.4, "lines"), 
+            axis.ticks = element_line(color="black"),
+            axis.line = element_line(color="black"),
+            axis.title.x = element_text(color="black", size=12, face="bold"),
+            axis.text = element_text(color="black", size=10, face="bold"),
+            axis.text.y = element_blank(),
+            text = element_text(size=8, color="black", family="serif"),
+            legend.position = "none",
+            axis.line.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            plot.title = element_text(size=15, face="bold", color="black", hjust=0.5))
+
+  
+  for (i in 1:(nrow(diff_res_mean) - 1)){
+      p2 <- p2 + annotate("rect", xmin=i+0.5, xmax=i+1.5, ymin=-Inf, ymax=Inf, 
+                          fill=ifelse(i %% 2 == 0, "white", "gray95"))  
+  } 
+  
+  p2 <- p2 +
+      geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                    position=position_dodge(0.8), width=0.5, size=0.5)+
+      geom_point(shape=21, size=3)+
+      scale_fill_manual(values=cbbPalette)+
+      geom_hline(aes(yintercept=0), linetype="dashed", color="black")
+      
+      
+  p3 <- ggplot(diff_res_mean, aes(x=var, y=estimate, fill=Group))+
+          geom_text(aes(y=0, x=var), label=diff_res_mean$p.adjust,
+                    hjust=0, fontface="bold", inherit.aes=FALSE, size=3)+
+          geom_text(aes(x=nrow(diff_res_mean)/2+0.5, y=0.85), label="P-value (corrected)",
+                   srt=90, fontface="bold", size=5)+
+          coord_flip()+
+          ylim(c(0,1))+
+          theme(panel.background = element_blank(),
+                panel.grid = element_blank(),
+                axis.line = element_blank(),
+                axis.ticks = element_blank(),
+                axis.text = element_blank(),
+                axis.title = element_blank())
+
+
+  pl <- p1 + p2 + p3 + plot_layout(widths = c(4, 6, 2))
+  
+  return(pl)
+}
+```
+
+
+### species: CRC vs HC
+```{r, fig.height=6, fig.width=10}
+STAMP_fun(dataset=ExprSet,
+          group_info="SubGroup",
+          group_name=subgrp[c(3,1)],
+          group_col=grp.col[c(3,1)],
+          Pval=0.05,
+          num=20)
+```
+
+
+### species: CRC vs AA
+```{r, fig.height=6, fig.width=10}
+STAMP_fun(dataset=ExprSet,
+          group_info="SubGroup",
+          group_name=subgrp[c(3,2)],
+          group_col=grp.col[c(3,2)],
+          Pval=0.05,
+          num=20)
+```
+
+
+### species: AA vs HC
+```{r, fig.height=5, fig.width=10}
+STAMP_fun(dataset=ExprSet,
+          group_info="SubGroup",
+          group_name=subgrp[c(2,1)],
+          group_col=grp.col[c(2,1)],
+          Pval=0.05,
+          num=20)
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
