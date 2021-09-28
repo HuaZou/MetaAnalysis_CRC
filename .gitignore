@@ -1,3 +1,13 @@
 .Rhistory
 .RData
 
+# orignal download data 
+*.Origin.RDS
+
+# SparCC network
+*.SparCC.RDS
+
+
+# profile
+*.profile*
+
