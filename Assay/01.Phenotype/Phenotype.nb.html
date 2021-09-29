@@ -210,7 +210,10 @@ pre code {
 
 
 <h1 class="title toc-ignore">Phenotype</h1>
-<h4 class="date">Created: 2021-09-17 Updated: 2021-09-17</h4>
+<h4 class="author">Hua Zou</h4>
+<a class="author_email" href="mailto:#"><a href="mailto:zouhua1@outlook.com" class="email">zouhua1@outlook.com</a></a>
+</address>
+<h4 class="date">Created: 2021-09-17 Updated: 2021-09-29</h4>
 
 </div>
 
@@ -222,37 +225,58 @@ pre code {
 <h3>Input data</h3>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucGhlbm90eXBlIDwtIHJlYWQuY3N2KFwiLi4vLi4vUmVzdWx0L1BoZW5vdHlwZS9waGVub3R5cGUuY3N2XCIsIHJvdy5uYW1lcyA9IDEpXG5gYGAifQ== -->
-<pre class="r"><code>phenotype &lt;- read.csv(&quot;../../Result/Phenotype/phenotype.csv&quot;, row.names = 1)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-</div>
-<div id="curation" class="section level3">
-<h3>Curation</h3>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucGhlbm90eXBlICU+JSAgXG4gICAgdGJsX3N1bW1hcnkoXG4gICAgICBieSA9IHN0dWR5X2NvbmRpdGlvbixcbiAgICAgIHN0YXRpc3RpYyA9IGxpc3QoXG4gICAgICAgYWxsX2NvbnRpbnVvdXMoKSB+IFwie21lYW59ICh7c2R9KVwiLFxuICAgICAgIGFsbF9jYXRlZ29yaWNhbCgpIH4gXCJ7bn0ve059ICh7cH0lKVwiKSkgJT4lXG4gICAgYWRkX3AocHZhbHVlX2Z1bj1mdW5jdGlvbih4KXtzdHlsZV9wdmFsdWUoeCwgZGlnaXRzID0gMyl9KSAlPiVcbiAgICBib2xkX2xhYmVscygpIFxuYGBgIn0= -->
-<pre class="r"><code>phenotype %&gt;%  
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxucGhlbm90eXBlIDwtIHJlYWQuY3N2KFxcLi4vLi4vUmVzdWx0L1BoZW5vdHlwZS9waGVub3R5cGUuY3N2XFwsIHJvdy5uYW1lcyA9IDEpXG5gYGBcbmBgYCJ9 -->
+<pre class="r"><code>```r
+phenotype &lt;- read.csv(\../../Result/Phenotype/phenotype.csv\, row.names = 1)</code></pre>
+<pre><code>
+&lt;!-- rnb-source-end --&gt;
+
+&lt;!-- rnb-chunk-end --&gt;
+
+
+&lt;!-- rnb-text-begin --&gt;
+
+
+
+### Curation
+
+&lt;!-- rnb-text-end --&gt;
+
+
+&lt;!-- rnb-chunk-begin --&gt;
+
+
+&lt;!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxucGhlbm90eXBlICU+JSAgXG4gICAgdGJsX3N1bW1hcnkoXG4gICAgICBieSA9IHN0dWR5X2NvbmRpdGlvbixcbiAgICAgIHN0YXRpc3RpYyA9IGxpc3QoXG4gICAgICAgYWxsX2NvbnRpbnVvdXMoKSB+IFxce21lYW59ICh7c2R9KVxcLFxuICAgICAgIGFsbF9jYXRlZ29yaWNhbCgpIH4gXFx7bn0ve059ICh7cH0lKVxcKSkgJT4lXG4gICAgYWRkX3AocHZhbHVlX2Z1bj1mdW5jdGlvbih4KXtzdHlsZV9wdmFsdWUoeCwgZGlnaXRzID0gMyl9KSAlPiVcbiAgICBib2xkX2xhYmVscygpIFxuYGBgXG5gYGAifQ== --&gt;
+
+```r
+```r
+phenotype %&gt;%  
     tbl_summary(
       by = study_condition,
       statistic = list(
-       all_continuous() ~ &quot;{mean} ({sd})&quot;,
-       all_categorical() ~ &quot;{n}/{N} ({p}%)&quot;)) %&gt;%
+       all_continuous() ~ \{mean} ({sd})\,
+       all_categorical() ~ \{n}/{N} ({p}%)\)) %&gt;%
     add_p(pvalue_fun=function(x){style_pvalue(x, digits = 3)}) %&gt;%
     bold_labels() </code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiVGhlcmUgd2FzIGFuIGVycm9yIGluICdhZGRfcCgpL2FkZF9kaWZmZXJlbmNlKCknIGZvciB2YXJpYWJsZSAnY291bnRyeScsIHAtdmFsdWUgb21pdHRlZDpcbkVycm9yIGluIHN0YXRzOjpmaXNoZXIudGVzdChjKFwiQVVUXCIsIFwiQVVUXCIsIFwiQVVUXCIsIFwiQVVUXCIsIFwiQVVUXCIsIFwiQVVUXCIsIDogRkVYQUNUIGVycm9yIDYgKGY1eGFjdCkuICBMREtFWT02MTIgaXMgdG9vIHNtYWxsIGZvciB0aGlzIHByb2JsZW06IGt2YWw9OTUzMDIyMzYuXG5UcnkgaW5jcmVhc2luZyB0aGUgc2l6ZSBvZiB0aGUgd29ya3NwYWNlLlxuIn0= -->
-<pre><code>There was an error in &#39;add_p()/add_difference()&#39; for variable &#39;country&#39;, p-value omitted:
-Error in stats::fisher.test(c(&quot;AUT&quot;, &quot;AUT&quot;, &quot;AUT&quot;, &quot;AUT&quot;, &quot;AUT&quot;, &quot;AUT&quot;, : FEXACT error 6 (f5xact).  LDKEY=612 is too small for this problem: kval=95302236.
-Try increasing the size of the workspace.</code></pre>
-<!-- rnb-output-end -->
+<pre><code>
+&lt;!-- rnb-source-end --&gt;
 
-<!-- rnb-html-begin eyJtZXRhZGF0YSI6eyJjbGFzc2VzIjpbInNoaW55LnRhZyJdLCJzaXppbmdQb2xpY3kiOltdfX0= -->
+&lt;!-- rnb-output-begin eyJkYXRhIjoiVGhlcmUgd2FzIGFuIGVycm9yIGluICdhZGRfcCgpL2FkZF9kaWZmZXJlbmNlKCknIGZvciB2YXJpYWJsZSAnY291bnRyeScsIHAtdmFsdWUgb21pdHRlZDpcbkVycm9yIGluIHN0YXRzOjpmaXNoZXIudGVzdChjKFxcQVVUXFwsIFxcQVVUXFwsIFxcQVVUXFwsIFxcQVVUXFwsIFxcQVVUXFwsIFxcQVVUXFwsIDogRkVYQUNUIGVycm9yIDYgKGY1eGFjdCkuICBMREtFWT02MTIgaXMgdG9vIHNtYWxsIGZvciB0aGlzIHByb2JsZW06IGt2YWw9OTUzMDIyMzYuXG5UcnkgaW5jcmVhc2luZyB0aGUgc2l6ZSBvZiB0aGUgd29ya3NwYWNlLlxuIn0= --&gt;
+</code></pre>
+<p>There was an error in ‘add_p()/add_difference()’ for variable ‘country’, p-value omitted: Error in stats::fisher.test(c(, , , , , , : FEXACT error 6 (f5xact). LDKEY=612 is too small for this problem: kval=95302236. Try increasing the size of the workspace.</p>
+<pre><code>
 
-<div id="xjvqykxsta" style="overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-  <style>html {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+
+&lt;!-- rnb-output-end --&gt;
+
+```{=html}
+
+&lt;!-- rnb-html-begin eyJtZXRhZGF0YSI6eyJtZXRhZGF0YSI6eyJjbGFzc2VzIjoic2hpbnkudGFnIiwic2l6aW5nUG9saWN5IjpbXX19fQ== --&gt;
+
+
+&lt;div id=&quot;xjvqykxsta&quot; style=&quot;overflow-x:auto;overflow-y:auto;width:auto;height:auto;&quot;&gt;
+  &lt;style&gt;html {
+  font-family: -apple-system, BlinkMacSystemFont, &#39;Segoe UI&#39;, Roboto, Oxygen, Ubuntu, Cantarell, &#39;Helvetica Neue&#39;, &#39;Fira Sans&#39;, &#39;Droid Sans&#39;, Arial, sans-serif;
 }
 
 #xjvqykxsta .gt_table {
@@ -422,11 +446,11 @@ Try increasing the size of the workspace.</code></pre>
   vertical-align: middle;
 }
 
-#xjvqykxsta .gt_from_md > :first-child {
+#xjvqykxsta .gt_from_md &gt; :first-child {
   margin-top: 0;
 }
 
-#xjvqykxsta .gt_from_md > :last-child {
+#xjvqykxsta .gt_from_md &gt; :last-child {
   margin-bottom: 0;
 }
 
@@ -587,204 +611,206 @@ Try increasing the size of the workspace.</code></pre>
   font-weight: normal;
   font-size: 65%;
 }
-</style>
-  <table class="gt_table">
+&lt;/style&gt;
+  &lt;table class=&quot;gt_table&quot;&gt;
   
-  <thead class="gt_col_headings">
-    <tr>
-      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1"><strong>Characteristic</strong></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"><strong>adenoma</strong>, N = 207<sup class="gt_footnote_marks">1</sup></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"><strong>control</strong>, N = 687<sup class="gt_footnote_marks">1</sup></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"><strong>CRC</strong>, N = 693<sup class="gt_footnote_marks">1</sup></th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1"><strong>p-value</strong><sup class="gt_footnote_marks">2</sup></th>
-    </tr>
-  </thead>
-  <tbody class="gt_table_body">
-    <tr><td class="gt_row gt_left" style="font-weight: bold;">study_name</td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center">&lt;0.001</td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">FengQ_2015</td>
-<td class="gt_row gt_center">47/207 (23%)</td>
-<td class="gt_row gt_center">61/687 (8.9%)</td>
-<td class="gt_row gt_center">46/693 (6.6%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">GuptaA_2019</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">30/687 (4.4%)</td>
-<td class="gt_row gt_center">30/693 (4.3%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">HanniganGD_2017</td>
-<td class="gt_row gt_center">26/207 (13%)</td>
-<td class="gt_row gt_center">28/687 (4.1%)</td>
-<td class="gt_row gt_center">26/693 (3.8%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">ThomasAM_2018a</td>
-<td class="gt_row gt_center">26/207 (13%)</td>
-<td class="gt_row gt_center">22/687 (3.2%)</td>
-<td class="gt_row gt_center">28/693 (4.0%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">ThomasAM_2018b</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">27/687 (3.9%)</td>
-<td class="gt_row gt_center">31/693 (4.5%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">ThomasAM_2019_c</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">40/687 (5.8%)</td>
-<td class="gt_row gt_center">40/693 (5.8%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">VogtmannE_2016</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">52/687 (7.6%)</td>
-<td class="gt_row gt_center">49/693 (7.1%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">WirbelJ_2018</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">65/687 (9.5%)</td>
-<td class="gt_row gt_center">60/693 (8.7%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">YachidaS_2019</td>
-<td class="gt_row gt_center">67/207 (32%)</td>
-<td class="gt_row gt_center">250/687 (36%)</td>
-<td class="gt_row gt_center">258/693 (37%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">YuJ_2015</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">53/687 (7.7%)</td>
-<td class="gt_row gt_center">74/693 (11%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">ZellerG_2014</td>
-<td class="gt_row gt_center">41/207 (20%)</td>
-<td class="gt_row gt_center">59/687 (8.6%)</td>
-<td class="gt_row gt_center">51/693 (7.4%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="font-weight: bold;">age</td>
-<td class="gt_row gt_center">64 (9)</td>
-<td class="gt_row gt_center">60 (12)</td>
-<td class="gt_row gt_center">63 (11)</td>
-<td class="gt_row gt_center">&lt;0.001</td></tr>
-    <tr><td class="gt_row gt_left" style="font-weight: bold;">gender</td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center">0.007</td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">female</td>
-<td class="gt_row gt_center">76/207 (37%)</td>
-<td class="gt_row gt_center">306/687 (45%)</td>
-<td class="gt_row gt_center">254/693 (37%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">male</td>
-<td class="gt_row gt_center">131/207 (63%)</td>
-<td class="gt_row gt_center">381/687 (55%)</td>
-<td class="gt_row gt_center">439/693 (63%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="font-weight: bold;">country</td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">AUT</td>
-<td class="gt_row gt_center">47/207 (23%)</td>
-<td class="gt_row gt_center">61/687 (8.9%)</td>
-<td class="gt_row gt_center">46/693 (6.6%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">CAN</td>
-<td class="gt_row gt_center">22/207 (11%)</td>
-<td class="gt_row gt_center">3/687 (0.4%)</td>
-<td class="gt_row gt_center">2/693 (0.3%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">CHN</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">53/687 (7.7%)</td>
-<td class="gt_row gt_center">74/693 (11%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">DEU</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">65/687 (9.5%)</td>
-<td class="gt_row gt_center">60/693 (8.7%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">FRA</td>
-<td class="gt_row gt_center">41/207 (20%)</td>
-<td class="gt_row gt_center">59/687 (8.6%)</td>
-<td class="gt_row gt_center">51/693 (7.4%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">IND</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">30/687 (4.4%)</td>
-<td class="gt_row gt_center">30/693 (4.3%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">ITA</td>
-<td class="gt_row gt_center">26/207 (13%)</td>
-<td class="gt_row gt_center">49/687 (7.1%)</td>
-<td class="gt_row gt_center">59/693 (8.5%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">JPN</td>
-<td class="gt_row gt_center">67/207 (32%)</td>
-<td class="gt_row gt_center">290/687 (42%)</td>
-<td class="gt_row gt_center">298/693 (43%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">USA</td>
-<td class="gt_row gt_center">4/207 (1.9%)</td>
-<td class="gt_row gt_center">77/687 (11%)</td>
-<td class="gt_row gt_center">73/693 (11%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="font-weight: bold;">BMI</td>
-<td class="gt_row gt_center">25.6 (4.9)</td>
-<td class="gt_row gt_center">24.1 (3.7)</td>
-<td class="gt_row gt_center">24.3 (4.3)</td>
-<td class="gt_row gt_center">0.001</td></tr>
-    <tr><td class="gt_row gt_left" style="font-weight: bold;">SubGroup</td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center"></td>
-<td class="gt_row gt_center">&lt;0.001</td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">AA</td>
-<td class="gt_row gt_center">207/207 (100%)</td>
-<td class="gt_row gt_center">0/687 (0%)</td>
-<td class="gt_row gt_center">0/693 (0%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">CRC</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">0/687 (0%)</td>
-<td class="gt_row gt_center">693/693 (100%)</td>
-<td class="gt_row gt_center"></td></tr>
-    <tr><td class="gt_row gt_left" style="text-align: left; text-indent: 10px;">HC</td>
-<td class="gt_row gt_center">0/207 (0%)</td>
-<td class="gt_row gt_center">687/687 (100%)</td>
-<td class="gt_row gt_center">0/693 (0%)</td>
-<td class="gt_row gt_center"></td></tr>
-  </tbody>
+  &lt;thead class=&quot;gt_col_headings&quot;&gt;
+    &lt;tr&gt;
+      &lt;th class=&quot;gt_col_heading gt_columns_bottom_border gt_left&quot; rowspan=&quot;1&quot; colspan=&quot;1&quot;&gt;&lt;strong&gt;Characteristic&lt;/strong&gt;&lt;/th&gt;
+      &lt;th class=&quot;gt_col_heading gt_columns_bottom_border gt_center&quot; rowspan=&quot;1&quot; colspan=&quot;1&quot;&gt;&lt;strong&gt;adenoma&lt;/strong&gt;, N = 207&lt;sup class=&quot;gt_footnote_marks&quot;&gt;1&lt;/sup&gt;&lt;/th&gt;
+      &lt;th class=&quot;gt_col_heading gt_columns_bottom_border gt_center&quot; rowspan=&quot;1&quot; colspan=&quot;1&quot;&gt;&lt;strong&gt;control&lt;/strong&gt;, N = 687&lt;sup class=&quot;gt_footnote_marks&quot;&gt;1&lt;/sup&gt;&lt;/th&gt;
+      &lt;th class=&quot;gt_col_heading gt_columns_bottom_border gt_center&quot; rowspan=&quot;1&quot; colspan=&quot;1&quot;&gt;&lt;strong&gt;CRC&lt;/strong&gt;, N = 693&lt;sup class=&quot;gt_footnote_marks&quot;&gt;1&lt;/sup&gt;&lt;/th&gt;
+      &lt;th class=&quot;gt_col_heading gt_columns_bottom_border gt_center&quot; rowspan=&quot;1&quot; colspan=&quot;1&quot;&gt;&lt;strong&gt;p-value&lt;/strong&gt;&lt;sup class=&quot;gt_footnote_marks&quot;&gt;2&lt;/sup&gt;&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody class=&quot;gt_table_body&quot;&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;font-weight: bold;&quot;&gt;study_name&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&amp;lt;0.001&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;FengQ_2015&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;47/207 (23%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;61/687 (8.9%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;46/693 (6.6%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;GuptaA_2019&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;30/687 (4.4%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;30/693 (4.3%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;HanniganGD_2017&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;26/207 (13%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;28/687 (4.1%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;26/693 (3.8%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;ThomasAM_2018a&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;26/207 (13%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;22/687 (3.2%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;28/693 (4.0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;ThomasAM_2018b&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;27/687 (3.9%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;31/693 (4.5%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;ThomasAM_2019_c&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;40/687 (5.8%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;40/693 (5.8%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;VogtmannE_2016&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;52/687 (7.6%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;49/693 (7.1%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;WirbelJ_2018&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;65/687 (9.5%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;60/693 (8.7%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;YachidaS_2019&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;67/207 (32%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;250/687 (36%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;258/693 (37%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;YuJ_2015&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;53/687 (7.7%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;74/693 (11%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;ZellerG_2014&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;41/207 (20%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;59/687 (8.6%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;51/693 (7.4%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;font-weight: bold;&quot;&gt;age&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;64 (9)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;60 (12)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;63 (11)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&amp;lt;0.001&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;font-weight: bold;&quot;&gt;gender&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0.007&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;female&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;76/207 (37%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;306/687 (45%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;254/693 (37%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;male&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;131/207 (63%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;381/687 (55%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;439/693 (63%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;font-weight: bold;&quot;&gt;country&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;AUT&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;47/207 (23%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;61/687 (8.9%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;46/693 (6.6%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;CAN&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;22/207 (11%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;3/687 (0.4%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;2/693 (0.3%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;CHN&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;53/687 (7.7%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;74/693 (11%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;DEU&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;65/687 (9.5%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;60/693 (8.7%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;FRA&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;41/207 (20%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;59/687 (8.6%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;51/693 (7.4%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;IND&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;30/687 (4.4%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;30/693 (4.3%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;ITA&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;26/207 (13%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;49/687 (7.1%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;59/693 (8.5%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;JPN&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;67/207 (32%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;290/687 (42%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;298/693 (43%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;USA&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;4/207 (1.9%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;77/687 (11%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;73/693 (11%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;font-weight: bold;&quot;&gt;BMI&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;25.6 (4.9)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;24.1 (3.7)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;24.3 (4.3)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0.001&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;font-weight: bold;&quot;&gt;SubGroup&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&amp;lt;0.001&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;AA&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;207/207 (100%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/687 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/693 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;CRC&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/687 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;693/693 (100%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td class=&quot;gt_row gt_left&quot; style=&quot;text-align: left; text-indent: 10px;&quot;&gt;HC&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/207 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;687/687 (100%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;0/693 (0%)&lt;/td&gt;
+&lt;td class=&quot;gt_row gt_center&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+  &lt;/tbody&gt;
   
-  <tfoot>
-    <tr class="gt_footnotes">
-      <td colspan="5">
-        <p class="gt_footnote">
-          <sup class="gt_footnote_marks">
-            <em>1</em>
-          </sup>
+  &lt;tfoot&gt;
+    &lt;tr class=&quot;gt_footnotes&quot;&gt;
+      &lt;td colspan=&quot;5&quot;&gt;
+        &lt;p class=&quot;gt_footnote&quot;&gt;
+          &lt;sup class=&quot;gt_footnote_marks&quot;&gt;
+            &lt;em&gt;1&lt;/em&gt;
+          &lt;/sup&gt;
            
           n/N (%); Mean (SD)
-          <br />
-        </p>
-        <p class="gt_footnote">
-          <sup class="gt_footnote_marks">
-            <em>2</em>
-          </sup>
+          &lt;br /&gt;
+        &lt;/p&gt;
+        &lt;p class=&quot;gt_footnote&quot;&gt;
+          &lt;sup class=&quot;gt_footnote_marks&quot;&gt;
+            &lt;em&gt;2&lt;/em&gt;
+          &lt;/sup&gt;
            
-          Pearson&#39;s Chi-squared test; Kruskal-Wallis rank sum test
-          <br />
-        </p>
-      </td>
-    </tr>
-  </tfoot>
-</table>
-</div>
+          Pearson&amp;#39;s Chi-squared test; Kruskal-Wallis rank sum test
+          &lt;br /&gt;
+        &lt;/p&gt;
+      &lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tfoot&gt;
+&lt;/table&gt;
+&lt;/div&gt;
 
 
-<!-- rnb-html-end -->
 
+
+&lt;!-- rnb-html-end --&gt;
+</code></pre>
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>
@@ -792,79 +818,73 @@ Try increasing the size of the workspace.</code></pre>
 <h3>systemic information</h3>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc2Vzc2lvbkluZm8oKVxuYGBgIn0= -->
-<pre class="r"><code>sessionInfo()</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiUiB2ZXJzaW9uIDQuMS4xICgyMDIxLTA4LTEwKVxuUGxhdGZvcm06IHg4Nl82NC13NjQtbWluZ3czMi94NjQgKDY0LWJpdClcblJ1bm5pbmcgdW5kZXI6IFdpbmRvd3MgMTAgeDY0IChidWlsZCAxOTA0MylcblxuTWF0cml4IHByb2R1Y3RzOiBkZWZhdWx0XG5cbmxvY2FsZTpcblsxXSBMQ19DT0xMQVRFPUVuZ2xpc2hfVW5pdGVkIFN0YXRlcy4xMjUyICBMQ19DVFlQRT1FbmdsaXNoX1VuaXRlZCBTdGF0ZXMuMTI1MiAgIFxuWzNdIExDX01PTkVUQVJZPUVuZ2xpc2hfVW5pdGVkIFN0YXRlcy4xMjUyIExDX05VTUVSSUM9QyAgICAgICAgICAgICAgICAgICAgICAgICAgXG5bNV0gTENfVElNRT1FbmdsaXNoX1VuaXRlZCBTdGF0ZXMuMTI1MiAgICBcbnN5c3RlbSBjb2RlIHBhZ2U6IDkzNlxuXG5hdHRhY2hlZCBiYXNlIHBhY2thZ2VzOlxuWzFdIHBhcmFsbGVsICBzdGF0czQgICAgc3RhdHMgICAgIGdyYXBoaWNzICBnckRldmljZXMgdXRpbHMgICAgIGRhdGFzZXRzICBtZXRob2RzICAgYmFzZSAgICAgXG5cbm90aGVyIGF0dGFjaGVkIHBhY2thZ2VzOlxuIFsxXSBndHN1bW1hcnlfMS40LjIgICAgICAgICAgICAgICAgY29udmVydF8xLjY4LjAgICAgICAgICAgICAgICAgIG1hcnJheV8xLjcwLjAgICAgICAgICAgICAgICAgIFxuIFs0XSBsaW1tYV8zLjQ4LjMgICAgICAgICAgICAgICAgICAgbWlhXzEuMC44ICAgICAgICAgICAgICAgICAgICAgIGN1cmF0ZWRNZXRhZ2Vub21pY0RhdGFfMy4xLjQgIFxuIFs3XSBUcmVlU3VtbWFyaXplZEV4cGVyaW1lbnRfMi4wLjMgQmlvc3RyaW5nc18yLjYwLjIgICAgICAgICAgICAgIFhWZWN0b3JfMC4zMi4wICAgICAgICAgICAgICAgIFxuWzEwXSBTaW5nbGVDZWxsRXhwZXJpbWVudF8xLjE0LjEgICAgU3VtbWFyaXplZEV4cGVyaW1lbnRfMS4yMi4wICAgIEJpb2Jhc2VfMi41Mi4wICAgICAgICAgICAgICAgIFxuWzEzXSBHZW5vbWljUmFuZ2VzXzEuNDQuMCAgICAgICAgICAgR2Vub21lSW5mb0RiXzEuMjguNCAgICAgICAgICAgIElSYW5nZXNfMi4yNi4wICAgICAgICAgICAgICAgIFxuWzE2XSBTNFZlY3RvcnNfMC4zMC4wICAgICAgICAgICAgICAgQmlvY0dlbmVyaWNzXzAuMzguMCAgICAgICAgICAgIE1hdHJpeEdlbmVyaWNzXzEuNC4zICAgICAgICAgIFxuWzE5XSBtYXRyaXhTdGF0c18wLjYwLjEgICAgICAgICAgICAgZ2dwbG90Ml8zLjMuNSAgICAgICAgICAgICAgICAgIHRpYmJsZV8zLjEuNCAgICAgICAgICAgICAgICAgIFxuWzIyXSBkcGx5cl8xLjAuNyAgICAgICAgICAgICAgICAgICBcblxubG9hZGVkIHZpYSBhIG5hbWVzcGFjZSAoYW5kIG5vdCBhdHRhY2hlZCk6XG4gIFsxXSBiYWNrcG9ydHNfMS4yLjEgICAgICAgICAgICAgICBBbm5vdGF0aW9uSHViXzMuMC4xICAgICAgICAgICBCaW9jRmlsZUNhY2hlXzIuMC4wICAgICAgICAgIFxuICBbNF0gcGx5cl8xLjguNiAgICAgICAgICAgICAgICAgICAgbWV0YV80LjE5LTEgICAgICAgICAgICAgICAgICAgbGF6eWV2YWxfMC4yLjIgICAgICAgICAgICAgICBcbiAgWzddIHNwbGluZXNfNC4xLjEgICAgICAgICAgICAgICAgIEJpb2NQYXJhbGxlbF8xLjI2LjIgICAgICAgICAgIHNjYXRlcl8xLjIwLjEgICAgICAgICAgICAgICAgXG4gWzEwXSBkaWdlc3RfMC42LjI3ICAgICAgICAgICAgICAgICBodG1sdG9vbHNfMC41LjIgICAgICAgICAgICAgICB2aXJpZGlzXzAuNi4xICAgICAgICAgICAgICAgIFxuIFsxM10gZmFuc2lfMC41LjAgICAgICAgICAgICAgICAgICAgY2hlY2ttYXRlXzIuMC4wICAgICAgICAgICAgICAgbWFncml0dHJfMi4wLjEgICAgICAgICAgICAgICBcbiBbMTZdIG1lbW9pc2VfMi4wLjAgICAgICAgICAgICAgICAgIFNjYWxlZE1hdHJpeF8xLjAuMCAgICAgICAgICAgIGNsdXN0ZXJfMi4xLjIgICAgICAgICAgICAgICAgXG4gWzE5XSBERUNJUEhFUl8yLjIwLjAgICAgICAgICAgICAgICBjb2xvcnNwYWNlXzIuMC0yICAgICAgICAgICAgICBibG9iXzEuMi4yICAgICAgICAgICAgICAgICAgIFxuIFsyMl0gcmFwcGRpcnNfMC4zLjMgICAgICAgICAgICAgICAgeGZ1bl8wLjI1ICAgICAgICAgICAgICAgICAgICAgY3JheW9uXzEuNC4xICAgICAgICAgICAgICAgICBcbiBbMjVdIFJDdXJsXzEuOTgtMS40ICAgICAgICAgICAgICAgIGpzb25saXRlXzEuNy4yICAgICAgICAgICAgICAgIGxtZTRfMS4xLTI3LjEgICAgICAgICAgICAgICAgXG4gWzI4XSBzdXJ2aXZhbF8zLjItMTMgICAgICAgICAgICAgICBhcGVfNS41ICAgICAgICAgICAgICAgICAgICAgICBnbHVlXzEuNC4yICAgICAgICAgICAgICAgICAgIFxuIFszMV0gZ3RhYmxlXzAuMy4wICAgICAgICAgICAgICAgICAgemxpYmJpb2NfMS4zOC4wICAgICAgICAgICAgICAgRGVsYXllZEFycmF5XzAuMTguMCAgICAgICAgICBcbiBbMzRdIEJpb2NTaW5ndWxhcl8xLjguMSAgICAgICAgICAgIHNjYWxlc18xLjEuMSAgICAgICAgICAgICAgICAgIERCSV8xLjEuMSAgICAgICAgICAgICAgICAgICAgXG4gWzM3XSBSY3BwXzEuMC43ICAgICAgICAgICAgICAgICAgICB2aXJpZGlzTGl0ZV8wLjQuMCAgICAgICAgICAgICB4dGFibGVfMS44LTQgICAgICAgICAgICAgICAgIFxuIFs0MF0gZGVjb250YW1fMS4xMi4wICAgICAgICAgICAgICAgdGlkeXRyZWVfMC4zLjUgICAgICAgICAgICAgICAgYml0XzQuMC40ICAgICAgICAgICAgICAgICAgICBcbiBbNDNdIHJzdmRfMS4wLjUgICAgICAgICAgICAgICAgICAgIGh0dHJfMS40LjIgICAgICAgICAgICAgICAgICAgIGVsbGlwc2lzXzAuMy4yICAgICAgICAgICAgICAgXG4gWzQ2XSBwa2djb25maWdfMi4wLjMgICAgICAgICAgICAgICBzY3V0dGxlXzEuMi4xICAgICAgICAgICAgICAgICBzYXNzXzAuNC4wICAgICAgICAgICAgICAgICAgIFxuIFs0OV0gZGJwbHlyXzIuMS4xICAgICAgICAgICAgICAgICAgdXRmOF8xLjIuMiAgICAgICAgICAgICAgICAgICAgdGlkeXNlbGVjdF8xLjEuMSAgICAgICAgICAgICBcbiBbNTJdIHJsYW5nXzAuNC4xMSAgICAgICAgICAgICAgICAgIHJlc2hhcGUyXzEuNC40ICAgICAgICAgICAgICAgIGxhdGVyXzEuMy4wICAgICAgICAgICAgICAgICAgXG4gWzU1XSBBbm5vdGF0aW9uRGJpXzEuNTQuMSAgICAgICAgICBtdW5zZWxsXzAuNS4wICAgICAgICAgICAgICAgICBCaW9jVmVyc2lvbl8zLjEzLjEgICAgICAgICAgIFxuIFs1OF0gdG9vbHNfNC4xLjEgICAgICAgICAgICAgICAgICAgY2FjaGVtXzEuMC42ICAgICAgICAgICAgICAgICAgY2xpXzMuMC4xICAgICAgICAgICAgICAgICAgICBcbiBbNjFdIERpcmljaGxldE11bHRpbm9taWFsXzEuMzQuMCAgIGdlbmVyaWNzXzAuMS4wICAgICAgICAgICAgICAgIFJTUUxpdGVfMi4yLjggICAgICAgICAgICAgICAgXG4gWzY0XSBFeHBlcmltZW50SHViXzIuMC4wICAgICAgICAgICBicm9vbV8wLjcuOSAgICAgICAgICAgICAgICAgICBtYXRoamF4cl8xLjQtMCAgICAgICAgICAgICAgIFxuIFs2N10gZXZhbHVhdGVfMC4xNCAgICAgICAgICAgICAgICAgc3RyaW5ncl8xLjQuMCAgICAgICAgICAgICAgICAgZmFzdG1hcF8xLjEuMCAgICAgICAgICAgICAgICBcbiBbNzBdIHlhbWxfMi4yLjEgICAgICAgICAgICAgICAgICAgIGtuaXRyXzEuMzQgICAgICAgICAgICAgICAgICAgIGJpdDY0XzQuMC41ICAgICAgICAgICAgICAgICAgXG4gWzczXSBwdXJycl8wLjMuNCAgICAgICAgICAgICAgICAgICBLRUdHUkVTVF8xLjMyLjAgICAgICAgICAgICAgICBubG1lXzMuMS0xNTMgICAgICAgICAgICAgICAgIFxuIFs3Nl0gc3BhcnNlTWF0cml4U3RhdHNfMS40LjIgICAgICAgbWltZV8wLjExICAgICAgICAgICAgICAgICAgICAgeG1sMl8xLjMuMiAgICAgICAgICAgICAgICAgICBcbiBbNzldIEJpb2NTdHlsZV8yLjIwLjIgICAgICAgICAgICAgIGNvbXBpbGVyXzQuMS4xICAgICAgICAgICAgICAgIHJzdHVkaW9hcGlfMC4xMyAgICAgICAgICAgICAgXG4gWzgyXSBiZWVzd2FybV8wLjQuMCAgICAgICAgICAgICAgICBmaWxlbG9ja18xLjAuMiAgICAgICAgICAgICAgICBjdXJsXzQuMy4yICAgICAgICAgICAgICAgICAgIFxuIFs4NV0gcG5nXzAuMS03ICAgICAgICAgICAgICAgICAgICAgaW50ZXJhY3RpdmVEaXNwbGF5QmFzZV8xLjMwLjAgZ3RfMC4zLjEgICAgICAgICAgICAgICAgICAgICBcbiBbODhdIHRyZWVpb18xLjE2LjIgICAgICAgICAgICAgICAgIGJyb29tLmhlbHBlcnNfMS4zLjAgICAgICAgICAgIGJzbGliXzAuMy4wICAgICAgICAgICAgICAgICAgXG4gWzkxXSBzdHJpbmdpXzEuNy40ICAgICAgICAgICAgICAgICBmb3JjYXRzXzAuNS4xICAgICAgICAgICAgICAgICBsYXR0aWNlXzAuMjAtNDQgICAgICAgICAgICAgIFxuIFs5NF0gTWF0cml4XzEuMy00ICAgICAgICAgICAgICAgICAgY29tbW9ubWFya18xLjcgICAgICAgICAgICAgICAgbmxvcHRyXzEuMi4yLjIgICAgICAgICAgICAgICBcbiBbOTddIHBlcm11dGVfMC45LTUgICAgICAgICAgICAgICAgIHZlZ2FuXzIuNS03ICAgICAgICAgICAgICAgICAgIHZjdHJzXzAuMy44ICAgICAgICAgICAgICAgICAgXG5bMTAwXSBDb21wUXVhZEZvcm1fMS40LjMgICAgICAgICAgICBwaWxsYXJfMS42LjIgICAgICAgICAgICAgICAgICBsaWZlY3ljbGVfMS4wLjAgICAgICAgICAgICAgIFxuWzEwM10gQmlvY01hbmFnZXJfMS4zMC4xNiAgICAgICAgICAganF1ZXJ5bGliXzAuMS40ICAgICAgICAgICAgICAgQmlvY05laWdoYm9yc18xLjEwLjAgICAgICAgICBcblsxMDZdIGNvd3Bsb3RfMS4xLjEgICAgICAgICAgICAgICAgIGJpdG9wc18xLjAtNyAgICAgICAgICAgICAgICAgIGlybGJhXzIuMy4zICAgICAgICAgICAgICAgICAgXG5bMTA5XSBodHRwdXZfMS42LjMgICAgICAgICAgICAgICAgICBSNl8yLjUuMSAgICAgICAgICAgICAgICAgICAgICBwcm9taXNlc18xLjIuMC4xICAgICAgICAgICAgIFxuWzExMl0gZ3JpZEV4dHJhXzIuMyAgICAgICAgICAgICAgICAgdmlwb3JfMC40LjUgICAgICAgICAgICAgICAgICAgYm9vdF8xLjMtMjggICAgICAgICAgICAgICAgICBcblsxMTVdIE1BU1NfNy4zLTU0ICAgICAgICAgICAgICAgICAgIGFzc2VydHRoYXRfMC4yLjEgICAgICAgICAgICAgIHdpdGhyXzIuNC4yICAgICAgICAgICAgICAgICAgXG5bMTE4XSBtZXRhZm9yXzMuMC0yICAgICAgICAgICAgICAgICBHZW5vbWVJbmZvRGJEYXRhXzEuMi42ICAgICAgICBtZ2N2XzEuOC0zNiAgICAgICAgICAgICAgICAgIFxuWzEyMV0gZ3JpZF80LjEuMSAgICAgICAgICAgICAgICAgICAgYmVhY2htYXRfMi44LjEgICAgICAgICAgICAgICAgdGlkeXJfMS4xLjMgICAgICAgICAgICAgICAgICBcblsxMjRdIG1pbnFhXzEuMi40ICAgICAgICAgICAgICAgICAgIHJtYXJrZG93bl8yLjExICAgICAgICAgICAgICAgIERlbGF5ZWRNYXRyaXhTdGF0c18xLjE0LjMgICAgXG5bMTI3XSBzaGlueV8xLjYuMCAgICAgICAgICAgICAgICAgICBnZ2JlZXN3YXJtXzAuNi4wICAgICAgICAgICAgIFxuIn0= -->
-<pre><code>R version 4.1.1 (2021-08-10)
-Platform: x86_64-w64-mingw32/x64 (64-bit)
-Running under: Windows 10 x64 (build 19043)
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxuc2Vzc2lvbkluZm8oKVxuYGBgXG5gYGAifQ== -->
+<pre class="r"><code>```r
+sessionInfo()</code></pre>
+<pre><code>
+&lt;!-- rnb-source-end --&gt;
 
-Matrix products: default
-
-locale:
-[1] LC_COLLATE=English_United States.1252  LC_CTYPE=English_United States.1252   
-[3] LC_MONETARY=English_United States.1252 LC_NUMERIC=C                          
-[5] LC_TIME=English_United States.1252    
-system code page: 936
-
-attached base packages:
-[1] parallel  stats4    stats     graphics  grDevices utils     datasets  methods   base     
-
-other attached packages:
- [1] gtsummary_1.4.2                convert_1.68.0                 marray_1.70.0                 
- [4] limma_3.48.3                   mia_1.0.8                      curatedMetagenomicData_3.1.4  
- [7] TreeSummarizedExperiment_2.0.3 Biostrings_2.60.2              XVector_0.32.0                
-[10] SingleCellExperiment_1.14.1    SummarizedExperiment_1.22.0    Biobase_2.52.0                
-[13] GenomicRanges_1.44.0           GenomeInfoDb_1.28.4            IRanges_2.26.0                
-[16] S4Vectors_0.30.0               BiocGenerics_0.38.0            MatrixGenerics_1.4.3          
-[19] matrixStats_0.60.1             ggplot2_3.3.5                  tibble_3.1.4                  
-[22] dplyr_1.0.7                   
-
-loaded via a namespace (and not attached):
-  [1] backports_1.2.1               AnnotationHub_3.0.1           BiocFileCache_2.0.0          
-  [4] plyr_1.8.6                    meta_4.19-1                   lazyeval_0.2.2               
-  [7] splines_4.1.1                 BiocParallel_1.26.2           scater_1.20.1                
- [10] digest_0.6.27                 htmltools_0.5.2               viridis_0.6.1                
- [13] fansi_0.5.0                   checkmate_2.0.0               magrittr_2.0.1               
- [16] memoise_2.0.0                 ScaledMatrix_1.0.0            cluster_2.1.2                
- [19] DECIPHER_2.20.0               colorspace_2.0-2              blob_1.2.2                   
- [22] rappdirs_0.3.3                xfun_0.25                     crayon_1.4.1                 
- [25] RCurl_1.98-1.4                jsonlite_1.7.2                lme4_1.1-27.1                
- [28] survival_3.2-13               ape_5.5                       glue_1.4.2                   
- [31] gtable_0.3.0                  zlibbioc_1.38.0               DelayedArray_0.18.0          
- [34] BiocSingular_1.8.1            scales_1.1.1                  DBI_1.1.1                    
- [37] Rcpp_1.0.7                    viridisLite_0.4.0             xtable_1.8-4                 
- [40] decontam_1.12.0               tidytree_0.3.5                bit_4.0.4                    
- [43] rsvd_1.0.5                    httr_1.4.2                    ellipsis_0.3.2               
- [46] pkgconfig_2.0.3               scuttle_1.2.1                 sass_0.4.0                   
- [49] dbplyr_2.1.1                  utf8_1.2.2                    tidyselect_1.1.1             
- [52] rlang_0.4.11                  reshape2_1.4.4                later_1.3.0                  
- [55] AnnotationDbi_1.54.1          munsell_0.5.0                 BiocVersion_3.13.1           
- [58] tools_4.1.1                   cachem_1.0.6                  cli_3.0.1                    
- [61] DirichletMultinomial_1.34.0   generics_0.1.0                RSQLite_2.2.8                
- [64] ExperimentHub_2.0.0           broom_0.7.9                   mathjaxr_1.4-0               
- [67] evaluate_0.14                 stringr_1.4.0                 fastmap_1.1.0                
- [70] yaml_2.2.1                    knitr_1.34                    bit64_4.0.5                  
- [73] purrr_0.3.4                   KEGGREST_1.32.0               nlme_3.1-153                 
- [76] sparseMatrixStats_1.4.2       mime_0.11                     xml2_1.3.2                   
- [79] BiocStyle_2.20.2              compiler_4.1.1                rstudioapi_0.13              
- [82] beeswarm_0.4.0                filelock_1.0.2                curl_4.3.2                   
- [85] png_0.1-7                     interactiveDisplayBase_1.30.0 gt_0.3.1                     
- [88] treeio_1.16.2                 broom.helpers_1.3.0           bslib_0.3.0                  
- [91] stringi_1.7.4                 forcats_0.5.1                 lattice_0.20-44              
- [94] Matrix_1.3-4                  commonmark_1.7                nloptr_1.2.2.2               
- [97] permute_0.9-5                 vegan_2.5-7                   vctrs_0.3.8                  
-[100] CompQuadForm_1.4.3            pillar_1.6.2                  lifecycle_1.0.0              
-[103] BiocManager_1.30.16           jquerylib_0.1.4               BiocNeighbors_1.10.0         
-[106] cowplot_1.1.1                 bitops_1.0-7                  irlba_2.3.3                  
-[109] httpuv_1.6.3                  R6_2.5.1                      promises_1.2.0.1             
-[112] gridExtra_2.3                 vipor_0.4.5                   boot_1.3-28                  
-[115] MASS_7.3-54                   assertthat_0.2.1              withr_2.4.2                  
-[118] metafor_3.0-2                 GenomeInfoDbData_1.2.6        mgcv_1.8-36                  
-[121] grid_4.1.1                    beachmat_2.8.1                tidyr_1.1.3                  
-[124] minqa_1.2.4                   rmarkdown_2.11                DelayedMatrixStats_1.14.3    
-[127] shiny_1.6.0                   ggbeeswarm_0.6.0             </code></pre>
+&lt;!-- rnb-output-begin eyJkYXRhIjoiUiB2ZXJzaW9uIDQuMS4xICgyMDIxLTA4LTEwKVxuUGxhdGZvcm06IHg4Nl82NC13NjQtbWluZ3czMi94NjQgKDY0LWJpdClcblJ1bm5pbmcgdW5kZXI6IFdpbmRvd3MgMTAgeDY0IChidWlsZCAxOTA0MylcblxuTWF0cml4IHByb2R1Y3RzOiBkZWZhdWx0XG5cbmxvY2FsZTpcblsxXSBMQ19DT0xMQVRFPUVuZ2xpc2hfVW5pdGVkIFN0YXRlcy4xMjUyICBMQ19DVFlQRT1FbmdsaXNoX1VuaXRlZCBTdGF0ZXMuMTI1MiAgIFxuWzNdIExDX01PTkVUQVJZPUVuZ2xpc2hfVW5pdGVkIFN0YXRlcy4xMjUyIExDX05VTUVSSUM9QyAgICAgICAgICAgICAgICAgICAgICAgICAgXG5bNV0gTENfVElNRT1FbmdsaXNoX1VuaXRlZCBTdGF0ZXMuMTI1MiAgICBcbnN5c3RlbSBjb2RlIHBhZ2U6IDkzNlxuXG5hdHRhY2hlZCBiYXNlIHBhY2thZ2VzOlxuWzFdIHBhcmFsbGVsICBzdGF0czQgICAgc3RhdHMgICAgIGdyYXBoaWNzICBnckRldmljZXMgdXRpbHMgICAgIGRhdGFzZXRzICBtZXRob2RzICAgYmFzZSAgICAgXG5cbm90aGVyIGF0dGFjaGVkIHBhY2thZ2VzOlxuIFsxXSBndHN1bW1hcnlfMS40LjIgICAgICAgICAgICAgICAgY29udmVydF8xLjY4LjAgICAgICAgICAgICAgICAgIG1hcnJheV8xLjcwLjAgICAgICAgICAgICAgICAgIFxuIFs0XSBsaW1tYV8zLjQ4LjMgICAgICAgICAgICAgICAgICAgbWlhXzEuMC44ICAgICAgICAgICAgICAgICAgICAgIGN1cmF0ZWRNZXRhZ2Vub21pY0RhdGFfMy4xLjQgIFxuIFs3XSBUcmVlU3VtbWFyaXplZEV4cGVyaW1lbnRfMi4wLjMgQmlvc3RyaW5nc18yLjYwLjIgICAgICAgICAgICAgIFhWZWN0b3JfMC4zMi4wICAgICAgICAgICAgICAgIFxuWzEwXSBTaW5nbGVDZWxsRXhwZXJpbWVudF8xLjE0LjEgICAgU3VtbWFyaXplZEV4cGVyaW1lbnRfMS4yMi4wICAgIEJpb2Jhc2VfMi41Mi4wICAgICAgICAgICAgICAgIFxuWzEzXSBHZW5vbWljUmFuZ2VzXzEuNDQuMCAgICAgICAgICAgR2Vub21lSW5mb0RiXzEuMjguNCAgICAgICAgICAgIElSYW5nZXNfMi4yNi4wICAgICAgICAgICAgICAgIFxuWzE2XSBTNFZlY3RvcnNfMC4zMC4wICAgICAgICAgICAgICAgQmlvY0dlbmVyaWNzXzAuMzguMCAgICAgICAgICAgIE1hdHJpeEdlbmVyaWNzXzEuNC4zICAgICAgICAgIFxuWzE5XSBtYXRyaXhTdGF0c18wLjYwLjEgICAgICAgICAgICAgZ2dwbG90Ml8zLjMuNSAgICAgICAgICAgICAgICAgIHRpYmJsZV8zLjEuNCAgICAgICAgICAgICAgICAgIFxuWzIyXSBkcGx5cl8xLjAuNyAgICAgICAgICAgICAgICAgICBcblxubG9hZGVkIHZpYSBhIG5hbWVzcGFjZSAoYW5kIG5vdCBhdHRhY2hlZCk6XG4gIFsxXSBiYWNrcG9ydHNfMS4yLjEgICAgICAgICAgICAgICBBbm5vdGF0aW9uSHViXzMuMC4xICAgICAgICAgICBCaW9jRmlsZUNhY2hlXzIuMC4wICAgICAgICAgIFxuICBbNF0gcGx5cl8xLjguNiAgICAgICAgICAgICAgICAgICAgbWV0YV80LjE5LTEgICAgICAgICAgICAgICAgICAgbGF6eWV2YWxfMC4yLjIgICAgICAgICAgICAgICBcbiAgWzddIHNwbGluZXNfNC4xLjEgICAgICAgICAgICAgICAgIEJpb2NQYXJhbGxlbF8xLjI2LjIgICAgICAgICAgIHNjYXRlcl8xLjIwLjEgICAgICAgICAgICAgICAgXG4gWzEwXSBkaWdlc3RfMC42LjI3ICAgICAgICAgICAgICAgICBodG1sdG9vbHNfMC41LjIgICAgICAgICAgICAgICB2aXJpZGlzXzAuNi4xICAgICAgICAgICAgICAgIFxuIFsxM10gZmFuc2lfMC41LjAgICAgICAgICAgICAgICAgICAgY2hlY2ttYXRlXzIuMC4wICAgICAgICAgICAgICAgbWFncml0dHJfMi4wLjEgICAgICAgICAgICAgICBcbiBbMTZdIG1lbW9pc2VfMi4wLjAgICAgICAgICAgICAgICAgIFNjYWxlZE1hdHJpeF8xLjAuMCAgICAgICAgICAgIGNsdXN0ZXJfMi4xLjIgICAgICAgICAgICAgICAgXG4gWzE5XSBERUNJUEhFUl8yLjIwLjAgICAgICAgICAgICAgICBjb2xvcnNwYWNlXzIuMC0yICAgICAgICAgICAgICBibG9iXzEuMi4yICAgICAgICAgICAgICAgICAgIFxuIFsyMl0gcmFwcGRpcnNfMC4zLjMgICAgICAgICAgICAgICAgeGZ1bl8wLjI1ICAgICAgICAgICAgICAgICAgICAgY3JheW9uXzEuNC4xICAgICAgICAgICAgICAgICBcbiBbMjVdIFJDdXJsXzEuOTgtMS40ICAgICAgICAgICAgICAgIGpzb25saXRlXzEuNy4yICAgICAgICAgICAgICAgIGxtZTRfMS4xLTI3LjEgICAgICAgICAgICAgICAgXG4gWzI4XSBzdXJ2aXZhbF8zLjItMTMgICAgICAgICAgICAgICBhcGVfNS41ICAgICAgICAgICAgICAgICAgICAgICBnbHVlXzEuNC4yICAgICAgICAgICAgICAgICAgIFxuIFszMV0gZ3RhYmxlXzAuMy4wICAgICAgICAgICAgICAgICAgemxpYmJpb2NfMS4zOC4wICAgICAgICAgICAgICAgRGVsYXllZEFycmF5XzAuMTguMCAgICAgICAgICBcbiBbMzRdIEJpb2NTaW5ndWxhcl8xLjguMSAgICAgICAgICAgIHNjYWxlc18xLjEuMSAgICAgICAgICAgICAgICAgIERCSV8xLjEuMSAgICAgICAgICAgICAgICAgICAgXG4gWzM3XSBSY3BwXzEuMC43ICAgICAgICAgICAgICAgICAgICB2aXJpZGlzTGl0ZV8wLjQuMCAgICAgICAgICAgICB4dGFibGVfMS44LTQgICAgICAgICAgICAgICAgIFxuIFs0MF0gZGVjb250YW1fMS4xMi4wICAgICAgICAgICAgICAgdGlkeXRyZWVfMC4zLjUgICAgICAgICAgICAgICAgYml0XzQuMC40ICAgICAgICAgICAgICAgICAgICBcbiBbNDNdIHJzdmRfMS4wLjUgICAgICAgICAgICAgICAgICAgIGh0dHJfMS40LjIgICAgICAgICAgICAgICAgICAgIGVsbGlwc2lzXzAuMy4yICAgICAgICAgICAgICAgXG4gWzQ2XSBwa2djb25maWdfMi4wLjMgICAgICAgICAgICAgICBzY3V0dGxlXzEuMi4xICAgICAgICAgICAgICAgICBzYXNzXzAuNC4wICAgICAgICAgICAgICAgICAgIFxuIFs0OV0gZGJwbHlyXzIuMS4xICAgICAgICAgICAgICAgICAgdXRmOF8xLjIuMiAgICAgICAgICAgICAgICAgICAgdGlkeXNlbGVjdF8xLjEuMSAgICAgICAgICAgICBcbiBbNTJdIHJsYW5nXzAuNC4xMSAgICAgICAgICAgICAgICAgIHJlc2hhcGUyXzEuNC40ICAgICAgICAgICAgICAgIGxhdGVyXzEuMy4wICAgICAgICAgICAgICAgICAgXG4gWzU1XSBBbm5vdGF0aW9uRGJpXzEuNTQuMSAgICAgICAgICBtdW5zZWxsXzAuNS4wICAgICAgICAgICAgICAgICBCaW9jVmVyc2lvbl8zLjEzLjEgICAgICAgICAgIFxuIFs1OF0gdG9vbHNfNC4xLjEgICAgICAgICAgICAgICAgICAgY2FjaGVtXzEuMC42ICAgICAgICAgICAgICAgICAgY2xpXzMuMC4xICAgICAgICAgICAgICAgICAgICBcbiBbNjFdIERpcmljaGxldE11bHRpbm9taWFsXzEuMzQuMCAgIGdlbmVyaWNzXzAuMS4wICAgICAgICAgICAgICAgIFJTUUxpdGVfMi4yLjggICAgICAgICAgICAgICAgXG4gWzY0XSBFeHBlcmltZW50SHViXzIuMC4wICAgICAgICAgICBicm9vbV8wLjcuOSAgICAgICAgICAgICAgICAgICBtYXRoamF4cl8xLjQtMCAgICAgICAgICAgICAgIFxuIFs2N10gZXZhbHVhdGVfMC4xNCAgICAgICAgICAgICAgICAgc3RyaW5ncl8xLjQuMCAgICAgICAgICAgICAgICAgZmFzdG1hcF8xLjEuMCAgICAgICAgICAgICAgICBcbiBbNzBdIHlhbWxfMi4yLjEgICAgICAgICAgICAgICAgICAgIGtuaXRyXzEuMzQgICAgICAgICAgICAgICAgICAgIGJpdDY0XzQuMC41ICAgICAgICAgICAgICAgICAgXG4gWzczXSBwdXJycl8wLjMuNCAgICAgICAgICAgICAgICAgICBLRUdHUkVTVF8xLjMyLjAgICAgICAgICAgICAgICBubG1lXzMuMS0xNTMgICAgICAgICAgICAgICAgIFxuIFs3Nl0gc3BhcnNlTWF0cml4U3RhdHNfMS40LjIgICAgICAgbWltZV8wLjExICAgICAgICAgICAgICAgICAgICAgeG1sMl8xLjMuMiAgICAgICAgICAgICAgICAgICBcbiBbNzldIEJpb2NTdHlsZV8yLjIwLjIgICAgICAgICAgICAgIGNvbXBpbGVyXzQuMS4xICAgICAgICAgICAgICAgIHJzdHVkaW9hcGlfMC4xMyAgICAgICAgICAgICAgXG4gWzgyXSBiZWVzd2FybV8wLjQuMCAgICAgICAgICAgICAgICBmaWxlbG9ja18xLjAuMiAgICAgICAgICAgICAgICBjdXJsXzQuMy4yICAgICAgICAgICAgICAgICAgIFxuIFs4NV0gcG5nXzAuMS03ICAgICAgICAgICAgICAgICAgICAgaW50ZXJhY3RpdmVEaXNwbGF5QmFzZV8xLjMwLjAgZ3RfMC4zLjEgICAgICAgICAgICAgICAgICAgICBcbiBbODhdIHRyZWVpb18xLjE2LjIgICAgICAgICAgICAgICAgIGJyb29tLmhlbHBlcnNfMS4zLjAgICAgICAgICAgIGJzbGliXzAuMy4wICAgICAgICAgICAgICAgICAgXG4gWzkxXSBzdHJpbmdpXzEuNy40ICAgICAgICAgICAgICAgICBmb3JjYXRzXzAuNS4xICAgICAgICAgICAgICAgICBsYXR0aWNlXzAuMjAtNDQgICAgICAgICAgICAgIFxuIFs5NF0gTWF0cml4XzEuMy00ICAgICAgICAgICAgICAgICAgY29tbW9ubWFya18xLjcgICAgICAgICAgICAgICAgbmxvcHRyXzEuMi4yLjIgICAgICAgICAgICAgICBcbiBbOTddIHBlcm11dGVfMC45LTUgICAgICAgICAgICAgICAgIHZlZ2FuXzIuNS03ICAgICAgICAgICAgICAgICAgIHZjdHJzXzAuMy44ICAgICAgICAgICAgICAgICAgXG5bMTAwXSBDb21wUXVhZEZvcm1fMS40LjMgICAgICAgICAgICBwaWxsYXJfMS42LjIgICAgICAgICAgICAgICAgICBsaWZlY3ljbGVfMS4wLjAgICAgICAgICAgICAgIFxuWzEwM10gQmlvY01hbmFnZXJfMS4zMC4xNiAgICAgICAgICAganF1ZXJ5bGliXzAuMS40ICAgICAgICAgICAgICAgQmlvY05laWdoYm9yc18xLjEwLjAgICAgICAgICBcblsxMDZdIGNvd3Bsb3RfMS4xLjEgICAgICAgICAgICAgICAgIGJpdG9wc18xLjAtNyAgICAgICAgICAgICAgICAgIGlybGJhXzIuMy4zICAgICAgICAgICAgICAgICAgXG5bMTA5XSBodHRwdXZfMS42LjMgICAgICAgICAgICAgICAgICBSNl8yLjUuMSAgICAgICAgICAgICAgICAgICAgICBwcm9taXNlc18xLjIuMC4xICAgICAgICAgICAgIFxuWzExMl0gZ3JpZEV4dHJhXzIuMyAgICAgICAgICAgICAgICAgdmlwb3JfMC40LjUgICAgICAgICAgICAgICAgICAgYm9vdF8xLjMtMjggICAgICAgICAgICAgICAgICBcblsxMTVdIE1BU1NfNy4zLTU0ICAgICAgICAgICAgICAgICAgIGFzc2VydHRoYXRfMC4yLjEgICAgICAgICAgICAgIHdpdGhyXzIuNC4yICAgICAgICAgICAgICAgICAgXG5bMTE4XSBtZXRhZm9yXzMuMC0yICAgICAgICAgICAgICAgICBHZW5vbWVJbmZvRGJEYXRhXzEuMi42ICAgICAgICBtZ2N2XzEuOC0zNiAgICAgICAgICAgICAgICAgIFxuWzEyMV0gZ3JpZF80LjEuMSAgICAgICAgICAgICAgICAgICAgYmVhY2htYXRfMi44LjEgICAgICAgICAgICAgICAgdGlkeXJfMS4xLjMgICAgICAgICAgICAgICAgICBcblsxMjRdIG1pbnFhXzEuMi40ICAgICAgICAgICAgICAgICAgIHJtYXJrZG93bl8yLjExICAgICAgICAgICAgICAgIERlbGF5ZWRNYXRyaXhTdGF0c18xLjE0LjMgICAgXG5bMTI3XSBzaGlueV8xLjYuMCAgICAgICAgICAgICAgICAgICBnZ2JlZXN3YXJtXzAuNi4wICAgICAgICAgICAgIFxuIn0= --&gt;
+</code></pre>
+<p>R version 4.1.1 (2021-08-10) Platform: x86_64-w64-mingw32/x64 (64-bit) Running under: Windows 10 x64 (build 19043)</p>
+<p>Matrix products: default</p>
+<p>locale: [1] LC_COLLATE=English_United States.1252 LC_CTYPE=English_United States.1252<br />
+[3] LC_MONETARY=English_United States.1252 LC_NUMERIC=C<br />
+[5] LC_TIME=English_United States.1252<br />
+system code page: 936</p>
+<p>attached base packages: [1] parallel stats4 stats graphics grDevices utils datasets methods base</p>
+<p>other attached packages: [1] gtsummary_1.4.2 convert_1.68.0 marray_1.70.0<br />
+[4] limma_3.48.3 mia_1.0.8 curatedMetagenomicData_3.1.4<br />
+[7] TreeSummarizedExperiment_2.0.3 Biostrings_2.60.2 XVector_0.32.0<br />
+[10] SingleCellExperiment_1.14.1 SummarizedExperiment_1.22.0 Biobase_2.52.0<br />
+[13] GenomicRanges_1.44.0 GenomeInfoDb_1.28.4 IRanges_2.26.0<br />
+[16] S4Vectors_0.30.0 BiocGenerics_0.38.0 MatrixGenerics_1.4.3<br />
+[19] matrixStats_0.60.1 ggplot2_3.3.5 tibble_3.1.4<br />
+[22] dplyr_1.0.7</p>
+<p>loaded via a namespace (and not attached): [1] backports_1.2.1 AnnotationHub_3.0.1 BiocFileCache_2.0.0<br />
+[4] plyr_1.8.6 meta_4.19-1 lazyeval_0.2.2<br />
+[7] splines_4.1.1 BiocParallel_1.26.2 scater_1.20.1<br />
+[10] digest_0.6.27 htmltools_0.5.2 viridis_0.6.1<br />
+[13] fansi_0.5.0 checkmate_2.0.0 magrittr_2.0.1<br />
+[16] memoise_2.0.0 ScaledMatrix_1.0.0 cluster_2.1.2<br />
+[19] DECIPHER_2.20.0 colorspace_2.0-2 blob_1.2.2<br />
+[22] rappdirs_0.3.3 xfun_0.25 crayon_1.4.1<br />
+[25] RCurl_1.98-1.4 jsonlite_1.7.2 lme4_1.1-27.1<br />
+[28] survival_3.2-13 ape_5.5 glue_1.4.2<br />
+[31] gtable_0.3.0 zlibbioc_1.38.0 DelayedArray_0.18.0<br />
+[34] BiocSingular_1.8.1 scales_1.1.1 DBI_1.1.1<br />
+[37] Rcpp_1.0.7 viridisLite_0.4.0 xtable_1.8-4<br />
+[40] decontam_1.12.0 tidytree_0.3.5 bit_4.0.4<br />
+[43] rsvd_1.0.5 httr_1.4.2 ellipsis_0.3.2<br />
+[46] pkgconfig_2.0.3 scuttle_1.2.1 sass_0.4.0<br />
+[49] dbplyr_2.1.1 utf8_1.2.2 tidyselect_1.1.1<br />
+[52] rlang_0.4.11 reshape2_1.4.4 later_1.3.0<br />
+[55] AnnotationDbi_1.54.1 munsell_0.5.0 BiocVersion_3.13.1<br />
+[58] tools_4.1.1 cachem_1.0.6 cli_3.0.1<br />
+[61] DirichletMultinomial_1.34.0 generics_0.1.0 RSQLite_2.2.8<br />
+[64] ExperimentHub_2.0.0 broom_0.7.9 mathjaxr_1.4-0<br />
+[67] evaluate_0.14 stringr_1.4.0 fastmap_1.1.0<br />
+[70] yaml_2.2.1 knitr_1.34 bit64_4.0.5<br />
+[73] purrr_0.3.4 KEGGREST_1.32.0 nlme_3.1-153<br />
+[76] sparseMatrixStats_1.4.2 mime_0.11 xml2_1.3.2<br />
+[79] BiocStyle_2.20.2 compiler_4.1.1 rstudioapi_0.13<br />
+[82] beeswarm_0.4.0 filelock_1.0.2 curl_4.3.2<br />
+[85] png_0.1-7 interactiveDisplayBase_1.30.0 gt_0.3.1<br />
+[88] treeio_1.16.2 broom.helpers_1.3.0 bslib_0.3.0<br />
+[91] stringi_1.7.4 forcats_0.5.1 lattice_0.20-44<br />
+[94] Matrix_1.3-4 commonmark_1.7 nloptr_1.2.2.2<br />
+[97] permute_0.9-5 vegan_2.5-7 vctrs_0.3.8<br />
+[100] CompQuadForm_1.4.3 pillar_1.6.2 lifecycle_1.0.0<br />
+[103] BiocManager_1.30.16 jquerylib_0.1.4 BiocNeighbors_1.10.0<br />
+[106] cowplot_1.1.1 bitops_1.0-7 irlba_2.3.3<br />
+[109] httpuv_1.6.3 R6_2.5.1 promises_1.2.0.1<br />
+[112] gridExtra_2.3 vipor_0.4.5 boot_1.3-28<br />
+[115] MASS_7.3-54 assertthat_0.2.1 withr_2.4.2<br />
+[118] metafor_3.0-2 GenomeInfoDbData_1.2.6 mgcv_1.8-36<br />
+[121] grid_4.1.1 beachmat_2.8.1 tidyr_1.1.3<br />
+[124] minqa_1.2.4 rmarkdown_2.11 DelayedMatrixStats_1.14.3<br />
+[127] shiny_1.6.0 ggbeeswarm_0.6.0<br />
+```</p>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
@@ -874,7 +894,7 @@ loaded via a namespace (and not attached):
 <!-- rnb-text-end -->
 </div>
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIlBoZW5vdHlwZSINCmRhdGU6ICJDcmVhdGVkOiAyMDIxLTA5LTE3IFVwZGF0ZWQ6IGByIFN5cy5EYXRlKClgIg0Kb3V0cHV0OiANCiAgaHRtbF9ub3RlYm9vazoNCiAgICBjb2RlczogaGlkZQ0KLS0tDQoNCmBgYHtyIHNldHVwLCBpbmNsdWRlPUZBTFNFfQ0Ka25pdHI6Om9wdHNfY2h1bmskc2V0KHdhcm5pbmcgPSBGLCBtZXNzYWdlID0gRikNCmxpYnJhcnkoZHBseXIpDQpsaWJyYXJ5KHRpYmJsZSkNCmxpYnJhcnkoZ3RzdW1tYXJ5KQ0KDQojIHJtKGxpc3QgPSBscygpKQ0Kb3B0aW9ucyhzdHJpbmdzQXNGYWN0b3JzID0gRikNCm9wdGlvbnMoZnV0dXJlLmdsb2JhbHMubWF4U2l6ZSA9IDEwMDAgKiAxMDI0XjIpDQoNCmdycCA8LSBjKCJjb250cm9sIiwgImFkZW5vbWEiLCAiQ1JDIikNCnN1YmdycCA8LSBjKCJIQyIsICJBQSIsICJDUkMiKQ0KZ3JwLmNvbCA8LSBjKCIjNTY4ODc1IiwgIiM3M0ZBRkMiLCAiI0VFODUzRCIpDQpgYGANCg0KDQojIyMgSW5wdXQgZGF0YQ0KYGBge3J9DQpwaGVub3R5cGUgPC0gcmVhZC5jc3YoIi4uLy4uL1Jlc3VsdC9QaGVub3R5cGUvcGhlbm90eXBlLmNzdiIsIHJvdy5uYW1lcyA9IDEpDQpgYGANCg0KDQojIyMgQ3VyYXRpb24NCmBgYHtyfQ0KcGhlbm90eXBlICU+JSAgDQogICAgdGJsX3N1bW1hcnkoDQogICAgICBieSA9IHN0dWR5X2NvbmRpdGlvbiwNCiAgICAgIHN0YXRpc3RpYyA9IGxpc3QoDQogICAgICAgYWxsX2NvbnRpbnVvdXMoKSB+ICJ7bWVhbn0gKHtzZH0pIiwNCiAgICAgICBhbGxfY2F0ZWdvcmljYWwoKSB+ICJ7bn0ve059ICh7cH0lKSIpKSAlPiUNCiAgICBhZGRfcChwdmFsdWVfZnVuPWZ1bmN0aW9uKHgpe3N0eWxlX3B2YWx1ZSh4LCBkaWdpdHMgPSAzKX0pICU+JQ0KICAgIGJvbGRfbGFiZWxzKCkgDQpgYGANCg0KDQoNCiMjIyBzeXN0ZW1pYyBpbmZvcm1hdGlvbg0KYGBge3J9DQpzZXNzaW9uSW5mbygpDQpgYGANCg0KDQojIyMgUmVmZXJlbmNlDQoNCg==</div>
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIlBoZW5vdHlwZSINCmRhdGU6ICJDcmVhdGVkOiAyMDIxLTA5LTE3IFVwZGF0ZWQ6IGByIFN5cy5EYXRlKClgIg0KYXV0aG9yOiANCiAgLSBuYW1lOiAiSHVhIFpvdSINCiAgICBlbWFpbDogInpvdWh1YTFAb3V0bG9vay5jb20iDQpvdXRwdXQ6IA0KICBodG1sX25vdGVib29rOg0KICAgIGNvZGVzOiBoaWRlDQotLS0NCg0KYGBge3Igc2V0dXAsIGluY2x1ZGU9RkFMU0V9DQprbml0cjo6b3B0c19jaHVuayRzZXQod2FybmluZyA9IEYsIG1lc3NhZ2UgPSBGKQ0KbGlicmFyeShkcGx5cikNCmxpYnJhcnkodGliYmxlKQ0KbGlicmFyeShndHN1bW1hcnkpDQoNCiMgcm0obGlzdCA9IGxzKCkpDQpvcHRpb25zKHN0cmluZ3NBc0ZhY3RvcnMgPSBGKQ0Kb3B0aW9ucyhmdXR1cmUuZ2xvYmFscy5tYXhTaXplID0gMTAwMCAqIDEwMjReMikNCg0KZ3JwIDwtIGMoImNvbnRyb2wiLCAiYWRlbm9tYSIsICJDUkMiKQ0Kc3ViZ3JwIDwtIGMoIkhDIiwgIkFBIiwgIkNSQyIpDQpncnAuY29sIDwtIGMoIiM1Njg4NzUiLCAiIzczRkFGQyIsICIjRUU4NTNEIikNCmBgYA0KDQoNCiMjIyBJbnB1dCBkYXRhDQpgYGB7cn0NCnBoZW5vdHlwZSA8LSByZWFkLmNzdigiLi4vLi4vUmVzdWx0L1BoZW5vdHlwZS9waGVub3R5cGUuY3N2Iiwgcm93Lm5hbWVzID0gMSkNCmBgYA0KDQoNCiMjIyBDdXJhdGlvbg0KYGBge3J9DQpwaGVub3R5cGUgJT4lICANCiAgICB0Ymxfc3VtbWFyeSgNCiAgICAgIGJ5ID0gc3R1ZHlfY29uZGl0aW9uLA0KICAgICAgc3RhdGlzdGljID0gbGlzdCgNCiAgICAgICBhbGxfY29udGludW91cygpIH4gInttZWFufSAoe3NkfSkiLA0KICAgICAgIGFsbF9jYXRlZ29yaWNhbCgpIH4gIntufS97Tn0gKHtwfSUpIikpICU+JQ0KICAgIGFkZF9wKHB2YWx1ZV9mdW49ZnVuY3Rpb24oeCl7c3R5bGVfcHZhbHVlKHgsIGRpZ2l0cyA9IDMpfSkgJT4lDQogICAgYm9sZF9sYWJlbHMoKSANCmBgYA0KDQoNCg0KIyMjIHN5c3RlbWljIGluZm9ybWF0aW9uDQpgYGB7cn0NCnNlc3Npb25JbmZvKCkNCmBgYA0KDQoNCiMjIyBSZWZlcmVuY2UNCg==</div>
 
 
 

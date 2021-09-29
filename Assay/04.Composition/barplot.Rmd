@@ -1,6 +1,9 @@
 ---
 title: "microbiota composition: stacked barplot"
 date: "Created: 2021-09-18 Modified: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
 output: 
   html_notebook:
     codes: hide

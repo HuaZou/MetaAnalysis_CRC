@@ -1,6 +1,9 @@
 ---
 title: "Dimensionality Reduction Analysis"
 date: "Created: 2021-09-17 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
 output: 
   html_notebook:
     codes: hide

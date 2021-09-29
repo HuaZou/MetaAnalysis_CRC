@@ -1,6 +1,9 @@
 ---
 title: "Differential Analysis"
 date: "Created: 2021-09-18 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
 output: 
   html_notebook:
     codes: hide
