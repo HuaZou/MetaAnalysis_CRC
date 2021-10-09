@@ -1,0 +1,202 @@
+---
+title: "Dimensionality Reduction Analysis: Multidimensional Scaling"
+date: "Created: 2021-10-09 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+> Mathematically and conceptually, there are close correspondences between MDS and other methods used to reduce the dimensionality of complex data, such as Principal components analysis (PCA) and factor analysis.
+>
+>PCA is more focused on the dimensions themselves, and seek to maximize explained variance, whereas MDS is more focused on relations among the scaled objects.
+>
+>MDS projects n-dimensional data points to a (commonly) 2-dimensional space such that similar objects in the n-dimensional space will be close together on the two dimensional plot, while PCA projects a multidimensional space to the directions of maximum variability using covariance/correlation matrix to analyze the correlation between data points and variables.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+options(warn = 0)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(MASS)
+library(ggpubr)
+options(warn = 0)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+```
+
+
+### Multidimensional scaling: MDS
+
+* cmdscale() [stats package]: Compute classical (metric) multidimensional scaling.
+* isoMDS() [MASS package]: Compute Kruskal’s non-metric multidimensional scaling (one form of non-metric MDS).
+* sammon() [MASS package]: Compute sammon’s non-linear mapping (one form of non-metric MDS).
+
+```{r, fig.width=8, fig.height=6}
+NMDSFun <- function(dataset=ExprSet,
+                    group_info="SubGroup",
+                    group_name=subgrp,
+                    group_col=grp.col,
+                    type="Classic"){
+  
+  # dataset=ExprSet
+  # group_info="SubGroup"
+  # group_name=subgrp
+  # group_col=grp.col
+  # type="Classic"
+  
+  require(convert)
+  metadata <- pData(dataset)
+  profile <- t(exprs(dataset))
+  colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"
+  
+  phenotype <- metadata %>% filter(Group%in%group_name)
+  sid <- intersect(rownames(phenotype), rownames(profile))
+  phen <- phenotype[rownames(phenotype)%in%sid, ]
+  prof <- profile %>% t() %>% data.frame() %>%
+    dplyr::select(rownames(phen)) %>% t()
+  
+  if(is.element(type, "Classic")){
+    # classical (metric) multidimensional scaling
+    mds <- prof %>% dist %>% cmdscale() %>% as_tibble()
+  }else if(is.element(type, "Non-metric")){
+    # Kruskal’s non-metric multidimensional scaling
+    mds <- prof %>% dist %>% isoMDS() %>% .$points %>% as_tibble()
+  }else if(is.element(type, "Non-Sammon")){
+    # sammon’s non-linear mapping
+    mds <- prof %>% dist %>% sammon() %>% .$points %>% as_tibble()
+  }
+  colnames(mds) <- c("MDS1", "MDS2")
+  rownames(mds) <- rownames(prof)
+  
+  score <- inner_join(phen %>% rownames_to_column("SampleID"),
+                      mds %>% rownames_to_column("SampleID"),
+                      by = "SampleID") %>%
+    mutate(Group=factor(Group, levels = group_name))
+  
+  # PERMANOVA
+  require(vegan)
+  set.seed(123)
+  if(any(prof < 0)){
+    res_adonis <- adonis(vegdist(prof, method = "manhattan") ~ phen$Group, permutations = 999) 
+  }else{
+    res_adonis <- adonis(vegdist(prof, method = "bray") ~ phen$Group, permutations = 999)    
+  }
+  adn_pvalue <- res_adonis[[1]][["Pr(>F)"]][1]
+  adn_rsquared <- round(res_adonis[[1]][["R2"]][1],3)
+  #use the bquote function to format adonis results to be annotated on the ordination plot.
+  signi_label <- paste(cut(adn_pvalue, breaks=c(-Inf, 0.001, 0.01, 0.05, Inf), label=c("***", "**", "*", ".")))
+  adn_res_format <- bquote(atop(atop("PERMANOVA", R^2==~.(adn_rsquared)),
+                                  atop("p-value="~.(adn_pvalue)~.(signi_label), phantom()))) 
+  
+  pl_MDS <- ggplot(score, aes(x=MDS1, y=MDS2, shape=Group))+
+              #geom_point(aes(color=Group), size=3.5, shape=21, stroke = .8, color = "black")+
+              geom_point(aes(color=Group), size=3)+
+              stat_ellipse(geom="polygon", aes(color=Group), level=0.95, alpha=0.2)+
+              scale_color_manual(values=group_col)+
+              scale_shape_manual(values=c(16, 17, 18))+
+              scale_fill_manual(name = "Condition", 
+                                values = group_col)+
+              #scale_x_continuous(position = "top")+
+              annotate("text", x = max(score$MDS1) ,
+                       y = min(score$MDS1),
+                       label = adn_res_format,
+                       size = 6)+
+              theme_bw()+
+              theme(axis.title = element_text(size = 10, color = "black", face = "bold"),
+                    axis.text = element_text(size = 9, color = "black"),
+                    text = element_text(size = 8, color = "black", family = "serif"),
+                    strip.text = element_text(size = 9, color = "black", face = "bold"), 
+                    #panel.grid = element_blank(),
+                    #plot.background = element_rect(fill = "grey90", color = "black", size = 1),
+                    #axis.line = element_line(color = 'black', size = 1),
+                    #axis.ticks = element_line(color = "black", size = 1),
+                    legend.title = element_text(size = 11, color = "black", family = "serif"),
+                    legend.text = element_text(size = 10, color = "black", family = "serif"),
+                    legend.position = c(0, 0),
+                    legend.justification = c(0, 0),
+                    legend.background = element_rect(color = "black", fill = "white", linetype = 2, size = 0.5))
+  
+  my_comparisons <- list()
+  num <- combn(length(unique(group_name)), 2)
+  for(i in 1:ncol(num)){
+      my_comparisons[[i]] <- group_name[num[, i]]
+  }
+  pl_m1 <- ggplot(score, aes(x=Group, y=MDS1))+
+              geom_point(aes(shape=Group, color=Group), size = 2, position = position_jitterdodge())+
+              stat_boxplot(aes(color=Group), geom = "errorbar", width = .12, size=2)+
+              geom_boxplot(aes(color=Group), width=0.4)+
+              labs(x="", y="")+
+              scale_shape_manual(values = c(16, 17, 18))+
+              scale_color_manual(values = group_col)+
+              guides(color="none", shape="none")+
+              stat_compare_means(comparisons = my_comparisons, label = "p.signif")+
+              coord_flip()+
+              theme_bw()+
+              theme(axis.text = element_blank(),
+                    axis.title = element_blank(),
+                    axis.ticks = element_blank())
+  
+  pl_m2 <- ggplot(score, aes(x=Group, y=MDS2))+
+              geom_point(aes(shape=Group, color=Group), size = 2, position = position_jitterdodge())+
+              stat_boxplot(aes(color=Group), geom = "errorbar", width = .12, size=2)+
+              geom_boxplot(aes(color=Group), width=0.4)+
+              labs(x="", y="")+
+              scale_shape_manual(values = c(16, 17, 18))+
+              scale_color_manual(values = group_col)+
+              guides(color="none", shape="none")+
+              stat_compare_means(comparisons = my_comparisons, label = "p.signif")+
+              theme_bw()+
+              theme(axis.text = element_blank(),
+                    axis.title = element_blank(),
+                    axis.ticks = element_blank())
+  
+  require(cowplot)
+  
+  # plot_grid(plot_grid(pl_MDS, pl_m2, rel_widths = c(3, 1), align = "hv", ncol = 2),
+  #           pl_m1, rel_heights = c(3, 1), align = "v", ncol=1, axis="r")
+  
+  pl <- ggarrange(pl_m1, NULL, pl_MDS, pl_m2, 
+            ncol = 2, nrow = 2, 
+            align = "hv", 
+            widths = c(3, 1), 
+            heights = c(1, 3), 
+            common.legend = TRUE)
+  
+  return(pl)
+  
+}
+
+classic_pl <- NMDSFun(dataset = ExprSet, type = "Classic")
+classic_pl
+```
+
+
+### Systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference 
+
+1. [Multidimensional Scaling Essentials: Algorithms and R Code](http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/122-multidimensional-scaling-essentials-algorithms-and-r-code/)
+

@@ -1,0 +1,154 @@
+---
+title: "MaAsLin2: Multivariable Association in Population-scale Meta-omics Studies"
+date: "Created: 2021-10-09 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+To further explore how facotrs impacted gut microbiome composition, investigating the correlations between individual factors and bacterial species via MaAsLin2 package
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+options(warn = 0)
+library(dplyr)
+library(tibble)
+library(data.table)
+library(Maaslin2)
+library(ggplot2)
+options(warn = 0)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+```
+
+
+### Multivariable Association in Population-scale Meta-omics Studies
+```{r}
+Maaslin2Fun <- function(dataset=ExprSet,
+                        group_info="SubGroup",
+                        group_name=subgrp,
+                        taxa="species"){
+  
+  # dataset=ExprSet
+  # group_info="SubGroup"
+  # group_name=subgrp
+  # taxa="species"
+  
+  require(convert)
+  metadata <- pData(dataset) %>% rownames_to_column("SampleID")
+  profile <- t(exprs(dataset)) %>% data.frame()
+  colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"
+  
+  mdat <- inner_join(metadata,
+                     profile %>% rownames_to_column("SampleID"),
+                     by = "SampleID") %>%
+    column_to_rownames("SampleID")
+  
+  input_data <- mdat[, c(ncol(metadata):ncol(mdat))] 
+  input_metadata <- mdat[, c(1:(ncol(metadata)-1))]
+  for(i in 1:ncol(input_metadata)){
+    if(!is.numeric(input_metadata[, i])){
+      input_metadata[, i] <- as.numeric(factor(input_metadata[, i]))
+    }
+  }
+  
+  outdir <- paste0("../../Result/MaAsLin2/", taxa)
+  if(!dir.exists(outdir)){
+    dir.create(outdir, recursive = TRUE)
+  }
+  
+  # Run MaAsLine2
+  fit_data <- Maaslin2(
+                  input_data, 
+                  input_metadata, 
+                  outdir,
+                  min_abundance = 1e-05,
+                  min_prevalence = 0.2,    
+                  transform = "AST",
+                  #fixed_effects = c("Age"),
+                  random_effects = NULL,
+                  normalization = "TSS",
+                  analysis_method = "LM",
+                  max_significance = 0.25,
+                  correction = "BH",
+                  standardize = TRUE,
+                  cores = 1,
+                  plot_heatmap = TRUE,
+                  plot_scatter = TRUE, 
+                  heatmap_first_n = 50)
+}
+
+Maaslin2Fun(dataset=ExprSet,taxa="species")
+```
+
+
+### Visualization of correlations between factors and each baterial species
+```{r, fig.height=10, fig.width=6}
+correlation_species <- fread("../../Result/MaAsLin2/species/all_results.tsv")
+
+CorPlotFun <- function(dataset=correlation_species,
+                       FDR_cut=0.0001,
+                       coef_cut=0.002){
+  
+  # dataset=correlation_species
+  # FDR_cut=0.0001
+  # coef_cut=0.002
+  
+  dat <- dataset %>% filter(qval < FDR_cut) %>%
+    filter(abs(coef) > coef_cut)
+  
+  pl <- ggplot(dat, aes(x=metadata, y=feature))+
+    geom_tile(aes(fill=coef))+
+    scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+     midpoint = 0, limit = c(-0.05, 0.05), space = "Lab", 
+     name="Correlation Coefficient")+
+    scale_x_discrete(position="top")+
+    labs(x="", y="")+
+    guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+          title.position = "bottom", title.hjust = 0.5))+ 
+    theme_bw()+
+    theme(
+      axis.title = element_blank(),
+      axis.ticks = element_blank(),
+      axis.text.x = element_text(size=10, color="black", angle=90, hjust=0),
+      axis.text.y = element_text(size=10, color="black", family="serif", face="italic"),
+      text = element_text(size=8, color="black", family="serif"),
+      legend.position = "bottom")
+  
+  return(pl)
+}
+
+CorPlotFun(dataset=correlation_species,
+           FDR_cut=0.0001,
+           coef_cut=0.01)
+```
+
+
+### Systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference 
+
+1. [MaAsLin2](https://huttenhower.sph.harvard.edu/maaslin)
+
+2. [ggplot2 heatmap](http://sthda.com/english/wiki/ggplot2-quick-correlation-matrix-heatmap-r-software-and-data-visualization)

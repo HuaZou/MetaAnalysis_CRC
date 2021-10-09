@@ -11,20 +11,28 @@
 *  **Study**: The materials about the project
 
 ```bash
-MetaAnalysis_CRC
+# tree -L 3 /disk/user/zouhua/project/MetaAnalysis_CRC
+/disk/user/zouhua/project/MetaAnalysis_CRC
 ├── Assay
 │   ├── 00.RawData
 │   │   ├── DownloadData_v0.Rmd
+│   │   ├── DownloadData_v0.nb.html
 │   │   ├── DownloadData_v1.Rmd
 │   │   ├── DownloadData_v1.nb.html
 │   │   ├── preprocess.Rmd
 │   │   └── preprocess.nb.html
 │   ├── 01.Phenotype
+│   │   ├── Distribution.Rmd
+│   │   ├── Distribution.nb.html
 │   │   ├── Phenotype.Rmd
 │   │   └── Phenotype.nb.html
 │   ├── 02.GlobalView
 │   │   ├── GlobelView.Rmd
-│   │   └── GlobelView.nb.html
+│   │   ├── GlobelView.nb.html
+│   │   ├── MDS.Rmd
+│   │   ├── MDS.nb.html
+│   │   ├── PERMANOVA.Rmd
+│   │   └── PERMANOVA.nb.html
 │   ├── 03.Diversity
 │   │   ├── diveristy.Rmd
 │   │   └── diveristy.nb.html
@@ -47,10 +55,17 @@ MetaAnalysis_CRC
 │   │   ├── 02.Difference.Rmd
 │   │   ├── 02.Difference.nb.html
 │   │   ├── 03.RandomForest.Rmd
-│   │   └── 03.RandomForest.nb.html
-│   └── 08.SupportVectorMachine
-│       ├── SVM.Rmd
-│       └── SVM.nb.html
+│   │   ├── 03.RandomForest.html
+│   │   ├── 03.RandomForest.nb.html
+│   │   ├── 04.Biomarker_visualization.Rmd
+│   │   ├── 04.Biomarker_visualization.nb.html
+│   │   └── README.md
+│   ├── 08.SupportVectorMachine
+│   │   ├── SVM.Rmd
+│   │   └── SVM.nb.html
+│   └── 09.MaAslin2
+│       ├── MaAslin2.Rmd
+│       └── MaAslin2.nb.html
 ├── README.md
 ├── Result
 │   ├── Biomarker
@@ -59,6 +74,8 @@ MetaAnalysis_CRC
 │   │   ├── CRC_HC_DEA.csv
 │   │   ├── CRC_HC_DEA_limma.csv
 │   │   └── CRC_HC_DEA_wilcox.csv
+│   ├── MaAsLin2
+│   │   └── species
 │   ├── Network
 │   │   └── species_SparCC.RDS
 │   ├── Phenotype

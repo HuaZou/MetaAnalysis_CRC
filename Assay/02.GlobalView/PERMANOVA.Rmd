@@ -1,0 +1,139 @@
+---
+title: "Permutational Multivariate Analysis of Variance(PERMANOVA)"
+date: "Created: 2021-10-09 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+options(warn = 0)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(vegan)
+options(warn = 0)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+```
+
+
+### Permutational Multivariate Analysis of Variance(PERMANOVA)
+```{r}
+PerFun <- function(dataset=ExprSet,
+                   group_info="SubGroup",
+                   group_name=subgrp,
+                   adjust=FALSE,
+                   pernum=999){
+  
+  # dataset=ExprSet
+  # group_info="SubGroup"
+  # group_name=subgrp
+  # adjust=FALSE
+  # pernum=999
+  
+  require(convert)
+  metadata <- pData(dataset)
+  profile <- t(exprs(dataset)) %>% data.frame()
+  colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"
+  
+  if(!any(colnames(metadata) %in% c("age", "gender"))){
+    stop("No confunder factors: age&gender, please check your phenotypic data")
+  }
+  
+  if(adjust){
+    per <- apply(metadata %>% dplyr::select(-one_of("age", "gender")), 2, function(x, prof){
+        dat <- data.frame(value = x, Age=metadata$age, Sex=metadata$gender, prof) %>% na.omit()
+        df <- dat %>% dplyr::select(-c("Age", "Sex"))
+        datphe <- df$value 
+        if (length(datphe) == 0 | length(unique(datphe)) == 1) {
+          res <- c(length(datphe), rep(NA, 6))
+        }else{
+          if (length(unique(datphe)) < 6) {
+            datphe <- as.factor(datphe)
+          } 
+            datprf <- df[, -1, F] 
+            dis <- vegan::vegdist(datprf, method="bray")
+            dat.tmp <- data.frame(group_col=datphe, Sex=dat$Sex, Age=dat$Age)
+            ad <- vegan::adonis(dis ~ group_col+Sex+Age, data=dat.tmp, permutations=pernum)
+            tmp <- as.data.frame(ad$aov.tab) %>% slice(1)
+            res <- c(length(datphe), as.numeric(tmp[, c(1:6)]))
+          }
+        return(res)
+      }, profile) %>% t() %>% data.frame()    
+  }else{
+    per <- apply(metadata, 2, function(x, prof){
+        dat <- data.frame(value = x, prof) %>% na.omit()
+        datphe <- dat$value  
+        if (length(datphe) == 0 | length(unique(datphe)) == 1) {
+          res <- c(length(datphe), rep(NA, 6))
+        }else{
+          if (length(unique(datphe)) < 6) {
+            datphe <- as.factor(datphe)
+          } 
+            datprf <- dat[, -1, F] 
+            dis <- vegan::vegdist(datprf, method="bray")
+            ad <- vegan::adonis(dis ~ datphe, permutations=pernum)
+            tmp <- as.data.frame(ad$aov.tab) %>% slice(1)
+            res <- c(length(datphe), as.numeric(tmp[, c(1:6)]))
+          }
+        return(res)
+      }, profile) %>% t() %>% data.frame()    
+  }
+
+  colnames(per) <- c("SumsOfSample", "Df", "SumsOfSqs", 
+                       "MeanSqs", "F.Model", "R2", "Pr(>F)")
+  per$FDR <- p.adjust(per$`Pr(>F)`, method = "BH")
+  return(per)
+}
+
+res_per <- PerFun(dataset=ExprSet, pernum=999)
+DT::datatable(res_per)
+```
+
+
+### Visualization of Effect size
+```{r}
+res_per %>% rownames_to_column("Factors") %>%
+  arrange(desc(R2)) %>%
+  mutate(Factors=factor(Factors, levels=rev(Factors))) %>%
+  mutate(signif=ifelse(FDR < 0.2, "*", NA)) %>%
+  # mutate(signif=ifelse(FDR > 0.05, NA, ifelse(FDR > 0.01, "*", "**"))) %>%
+  mutate(signif=factor(signif, levels = c("**", "*", NA))) %>%
+  ggplot(aes(x=Factors, y=R2, fill=signif))+
+    geom_bar(stat="identity", width=.7, size=1)+
+    labs(y="Effect Size (R square)", x="")+
+    scale_y_continuous(breaks=seq(0, 0.8, 0.2),
+                       limits=c(0, 0.8))+
+    scale_fill_manual(values=c("#FF4FB8", "#FF55F3", "#A5A5A5"))+
+    geom_text(aes(label=signif), hjust=-0.3, size=5, family="serif")+  
+    coord_flip()+
+    guides(fill="none")+
+    theme_bw()+
+    theme(axis.title = element_text(face="bold", color="black", size=12),
+          axis.text = element_text(color="black", size=10),
+          text = element_text(size=8, color="black", family="serif"))
+```
+
+
+### Systemic information
+```{r}
+sessionInfo()
+```

@@ -1,0 +1,85 @@
+---
+title: "Distribution of Age, gender in each project"
+date: "Created: 2021-10-09 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(ggpubr)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Input data
+```{r}
+phenotype <- read.csv("../../Result/Phenotype/phenotype.csv", row.names = 1)
+```
+
+
+### age per study
+```{r, fig.height=7, fig.width=7}
+gghistogram(phenotype, x = "age",
+     add = "mean", rug = TRUE,
+     color = "gender", fill = "gender",
+     palette = c("#00AFBB", "#E7B800"))+
+  facet_wrap(facets = "study_name", ncol = 4)
+```
+
+### age per group
+```{r}
+my_comparisons <- list()
+num <- combn(length(unique(subgrp)), 2)
+for(i in 1:ncol(num)){
+    my_comparisons[[i]] <- subgrp[num[, i]]
+}
+
+ggviolin(phenotype %>% mutate(SubGroup=factor(SubGroup, levels = subgrp)), 
+         x = "SubGroup", 
+         y = "age", 
+         fill = "SubGroup",
+         palette = grp.col, 
+         add = "boxplot", 
+         add.params = list(fill = "white"))+
+  stat_compare_means(comparisons = my_comparisons, label = "p.signif")+
+  stat_compare_means(label.y = 110)+
+  labs(x="")+
+  guides(fill="none")+
+  theme_bw()+
+  theme(axis.title = element_text(size = 10, color = "black", face = "bold"),
+        axis.text = element_text(size = 9, color = "black"),
+        text = element_text(size = 8, color = "black", family = "serif"))  
+```
+
+### gender per study
+```{r, fig.height=7, fig.width=7}
+ggdensity(phenotype, x = "gender",
+     color = "gender", fill = "gender",
+     palette = c("#00AFBB", "#E7B800"))+
+  facet_wrap(facets = "study_name", ncol = 4)
+
+ggdensity(phenotype, x = "gender",
+     color = "gender", fill = "gender",
+     palette = c("#00AFBB", "#E7B800"))+
+  facet_wrap(facets = "SubGroup")
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
