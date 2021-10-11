@@ -42,14 +42,15 @@ table(pData(ExprSet)$SubGroup)
 # T-test or Wilcox-test
 DEA_test <- function(dataset=ExprSet,
                      group_name=subgrp,
+                     occurrence=0.2,
                      Pval=0.05,
                      logFC=0.5){
   
   # dataset=ExprSet
   # group_name=subgrp[c(1, 3)]
+  # occurrence=0.2
   # Pval=0.05
   # logFC=0.5
-  
   
   if(length(group_name) == 3){
     group_name2 <- c("CRC", "non_CRC")
@@ -67,14 +68,21 @@ DEA_test <- function(dataset=ExprSet,
       mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
       column_to_rownames("SampleID")
   }
-  edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame()
+  # edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame()
+  
+  edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame() %>% 
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp")  
   
   # Checking whether the two groups that where tested were normally distributed using the Shapiro-Wilk test
   shapiro_res <- apply(edata, 1, function(x, y){
     #dat <- data.frame(value=as.numeric(edata[1, ]), group=pheno$SubGroup)
     dat <- data.frame(value=x, group=y)
     t_res <- tapply(dat$value, dat$group, shapiro.test)
-    if(t_res[[1]]$p.value < 0.05 | t_res[[1]]$p.value < 0.05){
+    #if(t_res[[1]]$p.value < 0.05 | t_res[[1]]$p.value < 0.05){
+    if(t_res[[1]]$p.value < 0.05){      
       res <- FALSE
     }else{
       res <- TRUE
@@ -168,14 +176,16 @@ DEA_test <- function(dataset=ExprSet,
 }
 
 # limma: linear regression
-get_DiffProtein_limma <- function(dataset=ExprSet,
-                                  group_name=subgrp[c(3,2,1)],
-                                  scale=FALSE,
-                                  fc=0.5,
-                                  Pval=0.05){
+get_DEA_limma <- function(dataset=ExprSet,
+                          group_name=subgrp[c(3,2,1)],
+                          occurrence=0.2,
+                          scale=FALSE,
+                          fc=0.5,
+                          Pval=0.05){
 
   # dataset=ExprSet
   # group_name=subgrp[c(3,2,1)]
+  # occurrence=0.2
   # scale=FALSE
   # fc=1
   # Pval=0.05
@@ -202,8 +212,14 @@ get_DiffProtein_limma <- function(dataset=ExprSet,
   colnames(design) <- group_name
 
   # show distribution
-  edata <- as.matrix(exprs(dataset))
-  exprSet <- scale(edata[, colnames(edata)%in%rownames(pheno)], center = T, scale = T)
+  # edata <- as.matrix(exprs(dataset))
+  # exprSet <- scale(edata[, colnames(edata)%in%rownames(pheno)], center = T, scale = T)  
+  edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame() %>% 
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp") %>% as.matrix()
+  exprSet <- scale(edata, center = T, scale = T)
   
   # Normalization: TMM
   if(scale){
@@ -317,10 +333,12 @@ get_DiffProtein_limma <- function(dataset=ExprSet,
 # only wilcox-test
 DEA_wilcox_test <- function(dataset=ExprSet,
                             group_name=subgrp[c(3,2,1)],
+                            occurrence=0.2,
                             Pval=0.05){
   
   # dataset=ExprSet
   # group_name=subgrp[c(3,2,1)]
+  # occurrence=0.2
   # Pval=0.05
   
   if(length(group_name) == 3){
@@ -340,7 +358,13 @@ DEA_wilcox_test <- function(dataset=ExprSet,
       column_to_rownames("SampleID")
   }
   
-  edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame()
+  # edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame()
+  
+  edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame() %>% 
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp")    
   
   # non-Normally distributed proteins
   res <- apply(edata, 1, function(x, y){
@@ -402,26 +426,26 @@ if(!dir.exists("../../Result/Differential")){
 # T-test/Wilcox-test
 CRC_HC_DEA <- DEA_test(
                  dataset=ExprSet,
-                 group_name=subgrp[c(1, 3)],
+                 group_name=subgrp[c(3, 1)],
                  Pval=0.05,
                  logFC=0)
 write.csv(CRC_HC_DEA, "../../Result/Differential/CRC_HC_DEA.csv", row.names = F)
 
 
 # limma
-CRC_HC_DEA_limma <- get_DiffProtein_limma(
-                    dataset    = ExprSet,
-                    group_name = subgrp[c(3, 1)],
-                    scale     = FALSE,
-                    Pval      = 0.05,
-                    fc        = 0.5)
+CRC_HC_DEA_limma <- get_DEA_limma(
+                      dataset=ExprSet,
+                      group_name=subgrp[c(3, 1)],
+                      scale=FALSE,
+                      Pval=0.05,
+                      fc=0.5)
 write.csv(CRC_HC_DEA_limma, "../../Result/Differential/CRC_HC_DEA_limma.csv", row.names = F)
 
 
 # wilcox
 CRC_HC_DEA_wilcox <- DEA_wilcox_test(
                        dataset=ExprSet,
-                       group_name=subgrp[c(1, 3)],
+                       group_name=subgrp[c(3, 1)],
                        Pval=0.05)
 write.csv(CRC_HC_DEA_wilcox, "../../Result/Differential/CRC_HC_DEA_wilcox.csv", row.names = F)
 ```
