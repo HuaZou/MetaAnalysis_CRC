@@ -39,20 +39,33 @@ ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
 ```{r, fig.width=8, fig.height=6}
 PCoAFun <- function(dataset=ExprSet,
                     group_info="SubGroup",
-                    group_name=subgrp){
+                    group_name=subgrp,
+                    group_col=grp.col,
+                    occurrence=0.2){
   
   # dataset=ExprSet
   # group_info="SubGroup"
-  # group_name=subgrp
+  # group_name=subgrp[c(3,1)]
+  # group_col=grp.col[c(3,1)]
+  # occurrence=0.2
   
   require(convert)
   metadata <- pData(dataset)
   profile <- t(exprs(dataset))
   colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"
   
+  phenotype <- metadata %>% filter(Group%in%group_name)
+  sid <- intersect(rownames(phenotype), rownames(profile))
+  phen <- phenotype[rownames(phenotype)%in%sid, ]
+  prof <- profile[rownames(phen), ] %>% t() %>% data.frame() %>%
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp") %>% t()  
+  
   require(ape)
   require(vegan)
-  pcoa <- pcoa(vegdist(profile, method = "bray"))
+  pcoa <- pcoa(vegdist(prof, method = "bray"))
   eig <- pcoa$values[, "Eigenvalues"]
   eig_var <- eig[1:2]
   eig_var_explain <- round(eig_var/sum(eig), 4) * 100   
@@ -62,7 +75,7 @@ PCoAFun <- function(dataset=ExprSet,
   score <- inner_join(pcoa$vectors[, c(1:2)] %>% data.frame() %>%
                         setNames(paste0("PCoA", seq(2))) %>%
                         rownames_to_column("SampleID"), 
-                      metadata %>% rownames_to_column("SampleID"),
+                      phen %>% rownames_to_column("SampleID"),
                       by = "SampleID") %>%
     mutate(Group=factor(Group, levels = group_name))
   
@@ -70,9 +83,9 @@ PCoAFun <- function(dataset=ExprSet,
   # PERMANOVA
   set.seed(123)
   if(any(profile < 0)){
-    res_adonis <- adonis(vegdist(profile, method = "manhattan") ~ metadata$Group, permutations = 999) 
+    res_adonis <- adonis(vegdist(prof, method = "manhattan") ~ phen$Group, permutations = 999) 
   }else{
-    res_adonis <- adonis(vegdist(profile, method = "bray") ~ metadata$Group, permutations = 999)    
+    res_adonis <- adonis(vegdist(prof, method = "bray") ~ phen$Group, permutations = 999)    
   }
   adn_pvalue <- res_adonis[[1]][["Pr(>F)"]][1]
   adn_rsquared <- round(res_adonis[[1]][["R2"]][1],3)
@@ -85,9 +98,9 @@ PCoAFun <- function(dataset=ExprSet,
               geom_point(aes(fill=Group), size=3.5, shape=21, stroke = .8, color = "black")+
               stat_ellipse(aes(color=Group), level = 0.95, linetype = 1, size = 1.5)+
               labs(x=explains[1], y=explains[2])+
-              scale_color_manual(values = grp.col)+
+              scale_color_manual(values = group_col)+
               scale_fill_manual(name = "Condition", 
-                                values = grp.col)+
+                                values = group_col)+
               annotate("text", x = max(score$PCoA1) ,
                        y = min(score$PCoA1),
                        label = adn_res_format,
@@ -116,22 +129,35 @@ PCoAFun(dataset = ExprSet)
 RtsneFun <- function(dataset=ExprSet,
                      perpl=30,
                      group_info="SubGroup",
-                     group_name=subgrp){
+                     group_name=subgrp,
+                     group_col=grp.col,
+                     occurrence=0.2){
   
   # dataset=ExprSet
   # perpl=50
   # group_info="SubGroup"
   # group_name=subgrp
+  # group_col=grp.col
+  # occurrence=0.2
   
   require(convert)
   metadata <- pData(dataset)
   profile <- t(exprs(dataset))
   colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"
   
+  phenotype <- metadata %>% filter(Group%in%group_name)
+  sid <- intersect(rownames(phenotype), rownames(profile))
+  phen <- phenotype[rownames(phenotype)%in%sid, ]
+  prof <- profile[rownames(phen), ] %>% t() %>% data.frame() %>%
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp") %>% t()  
+  
   # Rtsne
   require(Rtsne)
   set.seed(123)
-  Rtsne <- Rtsne(profile,  # each row is an observation(samples), each column is a variable(features)
+  Rtsne <- Rtsne(prof,  # each row is an observation(samples), each column is a variable(features)
                  dims=2, 
                  perplexity=perpl,
                  verbose=TRUE, 
@@ -150,9 +176,9 @@ RtsneFun <- function(dataset=ExprSet,
   require(vegan)
   set.seed(123)
   if(any(profile < 0)){
-    res_adonis <- adonis(vegdist(profile, method = "manhattan") ~ metadata$Group, permutations = 999) 
+    res_adonis <- adonis(vegdist(prof, method = "manhattan") ~ phen$Group, permutations = 999) 
   }else{
-    res_adonis <- adonis(vegdist(profile, method = "bray") ~ metadata$Group, permutations = 999)    
+    res_adonis <- adonis(vegdist(prof, method = "bray") ~ phen$Group, permutations = 999)    
   }
   adn_pvalue <- res_adonis[[1]][["Pr(>F)"]][1]
   adn_rsquared <- round(res_adonis[[1]][["R2"]][1],3)
@@ -164,9 +190,9 @@ RtsneFun <- function(dataset=ExprSet,
   pl <- ggplot(score, aes(x=tSNE1, y=tSNE2))+
               geom_point(aes(fill=Group), size=3.5, shape=21, stroke = .8, color = "black")+
               stat_ellipse(aes(color=Group), level = 0.95, linetype = 1, size = 1.5)+
-              scale_color_manual(values = grp.col)+
+              scale_color_manual(values = group_col)+
               scale_fill_manual(name = "Condition", 
-                                values = grp.col)+
+                                values = group_col)+
               annotate("text", x = max(score$tSNE1) - 8,
                        y = max(score$tSNE2)-5,
                        label = adn_res_format,
@@ -194,23 +220,38 @@ RtsneFun(dataset = ExprSet)
 ```{r, fig.width=8, fig.height=6}
 UMAPFun <- function(dataset=ExprSet,
                     group_info="SubGroup",
-                    group_name=subgrp){
+                    group_name=subgrp,
+                    group_col=grp.col,
+                    occurrence=0.2){
   
   # dataset=ExprSet
   # group_info="SubGroup"
   # group_name=subgrp
+  # group_col=grp.col
+  # occurrence=0.2
   
   require(convert)
   metadata <- pData(dataset)
   profile <- t(exprs(dataset))
-  colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"  
+  colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"
+  
+  phenotype <- metadata %>% filter(Group%in%group_name)
+  sid <- intersect(rownames(phenotype), rownames(profile))
+  phen <- phenotype[rownames(phenotype)%in%sid, ]
+  prof <- profile[rownames(phen), ] %>% t() %>% data.frame() %>%
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp") %>% t()   
+  
+  
   # umap 
   require(umap)
   umap <- umap::umap(profile)
   
   point <- umap$layout %>% data.frame() %>%
     setNames(c("UMAP1", "UMAP2"))
-  rownames(point) <- rownames(profile)
+  rownames(point) <- rownames(prof)
   score <- inner_join(point %>% rownames_to_column("SampleID"), 
                       metadata %>% rownames_to_column("SampleID"),
                       by = "SampleID") %>%
@@ -220,9 +261,9 @@ UMAPFun <- function(dataset=ExprSet,
   require(vegan)
   set.seed(123)
   if(any(profile < 0)){
-    res_adonis <- adonis(vegdist(profile, method = "manhattan") ~ metadata$Group, permutations = 999) 
+    res_adonis <- adonis(vegdist(prof, method = "manhattan") ~ phen$Group, permutations = 999) 
   }else{
-    res_adonis <- adonis(vegdist(profile, method = "bray") ~ metadata$Group, permutations = 999)    
+    res_adonis <- adonis(vegdist(prof, method = "bray") ~ phen$Group, permutations = 999)    
   }
   adn_pvalue <- res_adonis[[1]][["Pr(>F)"]][1]
   adn_rsquared <- round(res_adonis[[1]][["R2"]][1],3)
@@ -234,9 +275,9 @@ UMAPFun <- function(dataset=ExprSet,
   pl <- ggplot(score, aes(x=UMAP1, y=UMAP2))+
               geom_point(aes(fill=Group), size=3.5, shape=21, stroke = .8, color = "black")+
               stat_ellipse(aes(color=Group), level = 0.95, linetype = 1, size = 1.5)+
-              scale_color_manual(values = grp.col)+
+              scale_color_manual(values = group_col)+
               scale_fill_manual(name = "Condition", 
-                                values = grp.col)+
+                                values = group_col)+
               annotate("text", x = max(score$UMAP1),
                        y = min(score$UMAP2),
                        label = adn_res_format,

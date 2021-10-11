@@ -71,8 +71,14 @@ NMDSFun <- function(dataset=ExprSet,
   phenotype <- metadata %>% filter(Group%in%group_name)
   sid <- intersect(rownames(phenotype), rownames(profile))
   phen <- phenotype[rownames(phenotype)%in%sid, ]
-  prof <- profile %>% t() %>% data.frame() %>%
-    dplyr::select(rownames(phen)) %>% t()
+  # prof <- profile %>% t() %>% data.frame() %>%
+  #   dplyr::select(rownames(phen)) %>% t()
+  
+  prof <- profile[rownames(phen), ] %>% t() %>% data.frame() %>%
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp") %>% t()
   
   if(is.element(type, "Classic")){
     # classical (metric) multidimensional scaling
@@ -184,7 +190,11 @@ NMDSFun <- function(dataset=ExprSet,
   return(pl)
   
 }
+```
 
+
+### HC AA CRC 
+```{r}
 classic_pl <- NMDSFun(dataset = ExprSet, type = "Classic")
 classic_pl
 ```
