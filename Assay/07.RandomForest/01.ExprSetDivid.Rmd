@@ -39,21 +39,24 @@ ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
 ### Function
 ```{r}
 get_ExprSet <- function(datset=ExprSet,
+                        group_info="SubGroup",
                         SplitPro=0.7){
 
   # datset=ExprSet
+  # group_info="SubGroup"
   # SplitPro=0.7
   
   phenotype <- pData(datset)
   profile <- exprs(datset)
   feature <- fData(datset)
+  colnames(phenotype)[which(colnames(phenotype) == group_info)] <- "Group"
   
   mdat <- inner_join(phenotype %>% rownames_to_column("SampleID") %>%
-                       dplyr::select(SampleID, SubGroup),
+                       dplyr::select(SampleID, Group),
                      profile %>% t() %>% data.frame() %>%
                        rownames_to_column("SampleID"),
                      by = "SampleID") %>%
-    #mutate(SubGroup=factor(SubGroup, levels = subgrp)) %>%
+    #mutate(Group=factor(Group, levels = subgrp)) %>%
     column_to_rownames("SampleID") 
   
   # Data Partition
@@ -61,8 +64,8 @@ get_ExprSet <- function(datset=ExprSet,
     require(sampling)
     #set.seed(123)
     sample <- sampling::strata(mdat, 
-                       stratanames = "SubGroup", 
-                       size = rev(round(as.numeric(table(mdat$SubGroup)) * SplitPro)),
+                       stratanames = "Group", 
+                       size = rev(round(as.numeric(table(mdat$Group)) * SplitPro)),
                        method = "srswor")
     trainData <- mdat[sample$ID_unit, ]
     testData <- mdat[-sample$ID_unit, ]

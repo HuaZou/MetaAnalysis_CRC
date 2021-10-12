@@ -1773,8 +1773,65 @@ pre code {
 <h3>Principal Coordinates Analysis</h3>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuICBwbCA8LSBnZ3Bsb3Qoc2NvcmUsIGFlcyh4PVBDb0ExLCB5PVBDb0EyKSkrXG4gICAgICAgICAgICAgIGdlb21fcG9pbnQoYWVzKGZpbGw9R3JvdXApLCBzaXplPTMuNSwgc2hhcGU9MjEsIHN0cm9rZSA9IC44LCBjb2xvciA9IFwiYmxhY2tcIikrXG4gICAgICAgICAgICAgIHN0YXRfZWxsaXBzZShhZXMoY29sb3I9R3JvdXApLCBsZXZlbCA9IDAuOTUsIGxpbmV0eXBlID0gMSwgc2l6ZSA9IDEuNSkrXG4gICAgICAgICAgICAgIGxhYnMoeD1leHBsYWluc1sxXSwgeT1leHBsYWluc1syXSkrXG4gICAgICAgICAgICAgIHNjYWxlX2NvbG9yX21hbnVhbCh2YWx1ZXMgPSBncm91cF9jb2wpK1xuICAgICAgICAgICAgICBzY2FsZV9maWxsX21hbnVhbChuYW1lID0gXCJDb25kaXRpb25cIiwgXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlcyA9IGdyb3VwX2NvbCkrXG4gICAgICAgICAgICAgIGFubm90YXRlKFwidGV4dFwiLCB4ID0gbWF4KHNjb3JlJFBDb0ExKSAsXG4gICAgICAgICAgICAgICAgICAgICAgIHkgPSBtaW4oc2NvcmUkUENvQTEpLFxuICAgICAgICAgICAgICAgICAgICAgICBsYWJlbCA9IGFkbl9yZXNfZm9ybWF0LFxuICAgICAgICAgICAgICAgICAgICAgICBzaXplID0gNikrIFxuICAgICAgICAgICAgICBndWlkZXMoY29sb3I9XCJub25lXCIpK1xuICAgICAgICAgICAgICB0aGVtZV9jbGFzc2ljKCkrXG4gICAgICAgICAgICAgIHRoZW1lKGF4aXMudGl0bGUgPSBlbGVtZW50X3RleHQoc2l6ZSA9IDEwLCBjb2xvciA9IFwiYmxhY2tcIiwgZmFjZSA9IFwiYm9sZFwiKSxcbiAgICAgICAgICAgICAgICAgICAgYXhpcy50ZXh0ID0gZWxlbWVudF90ZXh0KHNpemUgPSA5LCBjb2xvciA9IFwiYmxhY2tcIiksXG4gICAgICAgICAgICAgICAgICAgIHRleHQgPSBlbGVtZW50X3RleHQoc2l6ZSA9IDgsIGNvbG9yID0gXCJibGFja1wiLCBmYW1pbHkgPSBcInNlcmlmXCIpLFxuICAgICAgICAgICAgICAgICAgICBzdHJpcC50ZXh0ID0gZWxlbWVudF90ZXh0KHNpemUgPSA5LCBjb2xvciA9IFwiYmxhY2tcIiwgZmFjZSA9IFwiYm9sZFwiKSwgXG4gICAgICAgICAgICAgICAgICAgIHBhbmVsLmdyaWQgPSBlbGVtZW50X2JsYW5rKCksXG4gICAgICAgICAgICAgICAgICAgIGxlZ2VuZC50aXRsZSA9IGVsZW1lbnRfdGV4dChzaXplID0gMTEsIGNvbG9yID0gXCJibGFja1wiLCBmYW1pbHkgPSBcInNlcmlmXCIpLFxuICAgICAgICAgICAgICAgICAgICBsZWdlbmQudGV4dCA9IGVsZW1lbnRfdGV4dChzaXplID0gMTAsIGNvbG9yID0gXCJibGFja1wiLCBmYW1pbHkgPSBcInNlcmlmXCIpLFxuICAgICAgICAgICAgICAgICAgICBsZWdlbmQucG9zaXRpb24gPSBjKDAsIDApLFxuICAgICAgICAgICAgICAgICAgICBsZWdlbmQuanVzdGlmaWNhdGlvbiA9IGMoMCwgMCksXG4gICAgICAgICAgICAgICAgICAgIGxlZ2VuZC5iYWNrZ3JvdW5kID0gZWxlbWVudF9yZWN0KGNvbG9yID0gXCJibGFja1wiLCBmaWxsID0gXCJ3aGl0ZVwiLCBsaW5ldHlwZSA9IDIsIHNpemUgPSAwLjUpKVxuXG5gYGAifQ== -->
-<pre class="r"><code>  pl &lt;- ggplot(score, aes(x=PCoA1, y=PCoA2))+
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuUENvQUZ1biA8LSBmdW5jdGlvbihkYXRhc2V0PUV4cHJTZXQsXG4gICAgICAgICAgICAgICAgICAgIGdyb3VwX2luZm89XCJTdWJHcm91cFwiLFxuICAgICAgICAgICAgICAgICAgICBncm91cF9uYW1lPXN1YmdycCxcbiAgICAgICAgICAgICAgICAgICAgZ3JvdXBfY29sPWdycC5jb2wsXG4gICAgICAgICAgICAgICAgICAgIG9jY3VycmVuY2U9MC4yKXtcbiAgXG4gICMgZGF0YXNldD1FeHByU2V0XG4gICMgZ3JvdXBfaW5mbz1cIlN1Ykdyb3VwXCJcbiAgIyBncm91cF9uYW1lPXN1YmdycFtjKDMsMSldXG4gICMgZ3JvdXBfY29sPWdycC5jb2xbYygzLDEpXVxuICAjIG9jY3VycmVuY2U9MC4yXG4gIFxuICByZXF1aXJlKGNvbnZlcnQpXG4gIG1ldGFkYXRhIDwtIHBEYXRhKGRhdGFzZXQpXG4gIHByb2ZpbGUgPC0gdChleHBycyhkYXRhc2V0KSlcbiAgY29sbmFtZXMobWV0YWRhdGEpW3doaWNoKGNvbG5hbWVzKG1ldGFkYXRhKSA9PSBncm91cF9pbmZvKV0gPC0gXCJHcm91cFwiXG4gIFxuICBwaGVub3R5cGUgPC0gbWV0YWRhdGEgJT4lIGZpbHRlcihHcm91cCVpbiVncm91cF9uYW1lKVxuICBzaWQgPC0gaW50ZXJzZWN0KHJvd25hbWVzKHBoZW5vdHlwZSksIHJvd25hbWVzKHByb2ZpbGUpKVxuICBwaGVuIDwtIHBoZW5vdHlwZVtyb3duYW1lcyhwaGVub3R5cGUpJWluJXNpZCwgXVxuICBwcm9mIDwtIHByb2ZpbGVbcm93bmFtZXMocGhlbiksIF0gJT4lIHQoKSAlPiUgZGF0YS5mcmFtZSgpICU+JVxuICAgICAgcm93bmFtZXNfdG9fY29sdW1uKFwidG1wXCIpICU+JVxuICAgIGZpbHRlcihhcHBseShkcGx5cjo6c2VsZWN0KC4sIC1vbmVfb2YoXCJ0bXBcIikpLCAxLCBmdW5jdGlvbih4KSB7XG4gICAgICAgICAgICBzdW0oeCAhPSAwKS9sZW5ndGgoeCl9KSA+IG9jY3VycmVuY2UpICU+JVxuICAgIGNvbHVtbl90b19yb3duYW1lcyhcInRtcFwiKSAlPiUgdCgpICBcbiAgXG4gIHJlcXVpcmUoYXBlKVxuICByZXF1aXJlKHZlZ2FuKVxuICBwY29hIDwtIHBjb2EodmVnZGlzdChwcm9mLCBtZXRob2QgPSBcImJyYXlcIikpXG4gIGVpZyA8LSBwY29hJHZhbHVlc1ssIFwiRWlnZW52YWx1ZXNcIl1cbiAgZWlnX3ZhciA8LSBlaWdbMToyXVxuICBlaWdfdmFyX2V4cGxhaW4gPC0gcm91bmQoZWlnX3Zhci9zdW0oZWlnKSwgNCkgKiAxMDAgICBcbiAgIyBleHBsYWlucyB2YXJpYWJsZSBcbiAgZXhwbGFpbnMgPC0gcGFzdGUwKHBhc3RlMChcIlBDb0FcIiwgc2VxKDIpKSwgXCIgKFwiLCBwYXN0ZTAoZWlnX3Zhcl9leHBsYWluLCBcIiVcIiksIFwiKVwiKVxuICAjIHByaW5jaXBhbCBjb21wb25lbnQgc2NvcmUgb2YgZWFjaCBzYW1wbGVcbiAgc2NvcmUgPC0gaW5uZXJfam9pbihwY29hJHZlY3RvcnNbLCBjKDE6MildICU+JSBkYXRhLmZyYW1lKCkgJT4lXG4gICAgICAgICAgICAgICAgICAgICAgICBzZXROYW1lcyhwYXN0ZTAoXCJQQ29BXCIsIHNlcSgyKSkpICU+JVxuICAgICAgICAgICAgICAgICAgICAgICAgcm93bmFtZXNfdG9fY29sdW1uKFwiU2FtcGxlSURcIiksIFxuICAgICAgICAgICAgICAgICAgICAgIHBoZW4gJT4lIHJvd25hbWVzX3RvX2NvbHVtbihcIlNhbXBsZUlEXCIpLFxuICAgICAgICAgICAgICAgICAgICAgIGJ5ID0gXCJTYW1wbGVJRFwiKSAlPiVcbiAgICBtdXRhdGUoR3JvdXA9ZmFjdG9yKEdyb3VwLCBsZXZlbHMgPSBncm91cF9uYW1lKSlcbiAgXG4gIFxuICAjIFBFUk1BTk9WQVxuICBzZXQuc2VlZCgxMjMpXG4gIGlmKGFueShwcm9maWxlIDwgMCkpe1xuICAgIHJlc19hZG9uaXMgPC0gYWRvbmlzKHZlZ2Rpc3QocHJvZiwgbWV0aG9kID0gXCJtYW5oYXR0YW5cIikgfiBwaGVuJEdyb3VwLCBwZXJtdXRhdGlvbnMgPSA5OTkpIFxuICB9ZWxzZXtcbiAgICByZXNfYWRvbmlzIDwtIGFkb25pcyh2ZWdkaXN0KHByb2YsIG1ldGhvZCA9IFwiYnJheVwiKSB+IHBoZW4kR3JvdXAsIHBlcm11dGF0aW9ucyA9IDk5OSkgICAgXG4gIH1cbiAgYWRuX3B2YWx1ZSA8LSByZXNfYWRvbmlzW1sxXV1bW1wiUHIoPkYpXCJdXVsxXVxuICBhZG5fcnNxdWFyZWQgPC0gcm91bmQocmVzX2Fkb25pc1tbMV1dW1tcIlIyXCJdXVsxXSwzKVxuICAjdXNlIHRoZSBicXVvdGUgZnVuY3Rpb24gdG8gZm9ybWF0IGFkb25pcyByZXN1bHRzIHRvIGJlIGFubm90YXRlZCBvbiB0aGUgb3JkaW5hdGlvbiBwbG90LlxuICBzaWduaV9sYWJlbCA8LSBwYXN0ZShjdXQoYWRuX3B2YWx1ZSxicmVha3M9YygtSW5mLCAwLjAwMSwgMC4wMSwgMC4wNSwgSW5mKSwgbGFiZWw9YyhcIioqKlwiLCBcIioqXCIsIFwiKlwiLCBcIi5cIikpKVxuICBhZG5fcmVzX2Zvcm1hdCA8LSBicXVvdGUoYXRvcChhdG9wKFwiUEVSTUFOT1ZBXCIsUl4yPT1+LihhZG5fcnNxdWFyZWQpKSxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBhdG9wKFwicC12YWx1ZT1cIn4uKGFkbl9wdmFsdWUpfi4oc2lnbmlfbGFiZWwpLCBwaGFudG9tKCkpKSkgXG4gIFxuICBwbCA8LSBnZ3Bsb3Qoc2NvcmUsIGFlcyh4PVBDb0ExLCB5PVBDb0EyKSkrXG4gICAgICAgICAgICAgIGdlb21fcG9pbnQoYWVzKGZpbGw9R3JvdXApLCBzaXplPTMuNSwgc2hhcGU9MjEsIHN0cm9rZSA9IC44LCBjb2xvciA9IFwiYmxhY2tcIikrXG4gICAgICAgICAgICAgIHN0YXRfZWxsaXBzZShhZXMoY29sb3I9R3JvdXApLCBsZXZlbCA9IDAuOTUsIGxpbmV0eXBlID0gMSwgc2l6ZSA9IDEuNSkrXG4gICAgICAgICAgICAgIGxhYnMoeD1leHBsYWluc1sxXSwgeT1leHBsYWluc1syXSkrXG4gICAgICAgICAgICAgIHNjYWxlX2NvbG9yX21hbnVhbCh2YWx1ZXMgPSBncm91cF9jb2wpK1xuICAgICAgICAgICAgICBzY2FsZV9maWxsX21hbnVhbChuYW1lID0gXCJDb25kaXRpb25cIiwgXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlcyA9IGdyb3VwX2NvbCkrXG4gICAgICAgICAgICAgIGFubm90YXRlKFwidGV4dFwiLCB4ID0gbWF4KHNjb3JlJFBDb0ExKSAsXG4gICAgICAgICAgICAgICAgICAgICAgIHkgPSBtaW4oc2NvcmUkUENvQTEpLFxuICAgICAgICAgICAgICAgICAgICAgICBsYWJlbCA9IGFkbl9yZXNfZm9ybWF0LFxuICAgICAgICAgICAgICAgICAgICAgICBzaXplID0gNikrIFxuICAgICAgICAgICAgICBndWlkZXMoY29sb3I9XCJub25lXCIpK1xuICAgICAgICAgICAgICB0aGVtZV9jbGFzc2ljKCkrXG4gICAgICAgICAgICAgIHRoZW1lKGF4aXMudGl0bGUgPSBlbGVtZW50X3RleHQoc2l6ZSA9IDEwLCBjb2xvciA9IFwiYmxhY2tcIiwgZmFjZSA9IFwiYm9sZFwiKSxcbiAgICAgICAgICAgICAgICAgICAgYXhpcy50ZXh0ID0gZWxlbWVudF90ZXh0KHNpemUgPSA5LCBjb2xvciA9IFwiYmxhY2tcIiksXG4gICAgICAgICAgICAgICAgICAgIHRleHQgPSBlbGVtZW50X3RleHQoc2l6ZSA9IDgsIGNvbG9yID0gXCJibGFja1wiLCBmYW1pbHkgPSBcInNlcmlmXCIpLFxuICAgICAgICAgICAgICAgICAgICBzdHJpcC50ZXh0ID0gZWxlbWVudF90ZXh0KHNpemUgPSA5LCBjb2xvciA9IFwiYmxhY2tcIiwgZmFjZSA9IFwiYm9sZFwiKSwgXG4gICAgICAgICAgICAgICAgICAgIHBhbmVsLmdyaWQgPSBlbGVtZW50X2JsYW5rKCksXG4gICAgICAgICAgICAgICAgICAgIGxlZ2VuZC50aXRsZSA9IGVsZW1lbnRfdGV4dChzaXplID0gMTEsIGNvbG9yID0gXCJibGFja1wiLCBmYW1pbHkgPSBcInNlcmlmXCIpLFxuICAgICAgICAgICAgICAgICAgICBsZWdlbmQudGV4dCA9IGVsZW1lbnRfdGV4dChzaXplID0gMTAsIGNvbG9yID0gXCJibGFja1wiLCBmYW1pbHkgPSBcInNlcmlmXCIpLFxuICAgICAgICAgICAgICAgICAgICBsZWdlbmQucG9zaXRpb24gPSBjKDAsIDApLFxuICAgICAgICAgICAgICAgICAgICBsZWdlbmQuanVzdGlmaWNhdGlvbiA9IGMoMCwgMCksXG4gICAgICAgICAgICAgICAgICAgIGxlZ2VuZC5iYWNrZ3JvdW5kID0gZWxlbWVudF9yZWN0KGNvbG9yID0gXCJibGFja1wiLCBmaWxsID0gXCJ3aGl0ZVwiLCBsaW5ldHlwZSA9IDIsIHNpemUgPSAwLjUpKVxuICByZXR1cm4ocGwpXG59XG5cblBDb0FGdW4oZGF0YXNldCA9IEV4cHJTZXQpXG5gYGAifQ== -->
+<pre class="r"><code>PCoAFun &lt;- function(dataset=ExprSet,
+                    group_info=&quot;SubGroup&quot;,
+                    group_name=subgrp,
+                    group_col=grp.col,
+                    occurrence=0.2){
+  
+  # dataset=ExprSet
+  # group_info=&quot;SubGroup&quot;
+  # group_name=subgrp[c(3,1)]
+  # group_col=grp.col[c(3,1)]
+  # occurrence=0.2
+  
+  require(convert)
+  metadata &lt;- pData(dataset)
+  profile &lt;- t(exprs(dataset))
+  colnames(metadata)[which(colnames(metadata) == group_info)] &lt;- &quot;Group&quot;
+  
+  phenotype &lt;- metadata %&gt;% filter(Group%in%group_name)
+  sid &lt;- intersect(rownames(phenotype), rownames(profile))
+  phen &lt;- phenotype[rownames(phenotype)%in%sid, ]
+  prof &lt;- profile[rownames(phen), ] %&gt;% t() %&gt;% data.frame() %&gt;%
+      rownames_to_column(&quot;tmp&quot;) %&gt;%
+    filter(apply(dplyr::select(., -one_of(&quot;tmp&quot;)), 1, function(x) {
+            sum(x != 0)/length(x)}) &gt; occurrence) %&gt;%
+    column_to_rownames(&quot;tmp&quot;) %&gt;% t()  
+  
+  require(ape)
+  require(vegan)
+  pcoa &lt;- pcoa(vegdist(prof, method = &quot;bray&quot;))
+  eig &lt;- pcoa$values[, &quot;Eigenvalues&quot;]
+  eig_var &lt;- eig[1:2]
+  eig_var_explain &lt;- round(eig_var/sum(eig), 4) * 100   
+  # explains variable 
+  explains &lt;- paste0(paste0(&quot;PCoA&quot;, seq(2)), &quot; (&quot;, paste0(eig_var_explain, &quot;%&quot;), &quot;)&quot;)
+  # principal component score of each sample
+  score &lt;- inner_join(pcoa$vectors[, c(1:2)] %&gt;% data.frame() %&gt;%
+                        setNames(paste0(&quot;PCoA&quot;, seq(2))) %&gt;%
+                        rownames_to_column(&quot;SampleID&quot;), 
+                      phen %&gt;% rownames_to_column(&quot;SampleID&quot;),
+                      by = &quot;SampleID&quot;) %&gt;%
+    mutate(Group=factor(Group, levels = group_name))
+  
+  
+  # PERMANOVA
+  set.seed(123)
+  if(any(profile &lt; 0)){
+    res_adonis &lt;- adonis(vegdist(prof, method = &quot;manhattan&quot;) ~ phen$Group, permutations = 999) 
+  }else{
+    res_adonis &lt;- adonis(vegdist(prof, method = &quot;bray&quot;) ~ phen$Group, permutations = 999)    
+  }
+  adn_pvalue &lt;- res_adonis[[1]][[&quot;Pr(&gt;F)&quot;]][1]
+  adn_rsquared &lt;- round(res_adonis[[1]][[&quot;R2&quot;]][1],3)
+  #use the bquote function to format adonis results to be annotated on the ordination plot.
+  signi_label &lt;- paste(cut(adn_pvalue,breaks=c(-Inf, 0.001, 0.01, 0.05, Inf), label=c(&quot;***&quot;, &quot;**&quot;, &quot;*&quot;, &quot;.&quot;)))
+  adn_res_format &lt;- bquote(atop(atop(&quot;PERMANOVA&quot;,R^2==~.(adn_rsquared)),
+                                  atop(&quot;p-value=&quot;~.(adn_pvalue)~.(signi_label), phantom()))) 
+  
+  pl &lt;- ggplot(score, aes(x=PCoA1, y=PCoA2))+
               geom_point(aes(fill=Group), size=3.5, shape=21, stroke = .8, color = &quot;black&quot;)+
               stat_ellipse(aes(color=Group), level = 0.95, linetype = 1, size = 1.5)+
               labs(x=explains[1], y=explains[2])+
@@ -1797,13 +1854,11 @@ pre code {
                     legend.position = c(0, 0),
                     legend.justification = c(0, 0),
                     legend.background = element_rect(color = &quot;black&quot;, fill = &quot;white&quot;, linetype = 2, size = 0.5))
-</code></pre>
+  return(pl)
+}
+
+PCoAFun(dataset = ExprSet)</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3I6ICAgWW91J3JlIHBhc3NpbmcgYSBmdW5jdGlvbiBhcyBnbG9iYWwgZGF0YS5cbiAgSGF2ZSB5b3UgbWlzc3BlbGxlZCB0aGUgYGRhdGFgIGFyZ3VtZW50IGluIGBnZ3Bsb3QoKWBcblJ1biBgcmxhbmc6Omxhc3RfZXJyb3IoKWAgdG8gc2VlIHdoZXJlIHRoZSBlcnJvciBvY2N1cnJlZC5cbiJ9 -->
-<pre><code>Error:   You&#39;re passing a function as global data.
-  Have you misspelled the `data` argument in `ggplot()`
-Run `rlang::last_error()` to see where the error occurred.</code></pre>
-<!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>

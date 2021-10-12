@@ -73,6 +73,7 @@ CRC_HC_DEA <- fread("../../Result/Biomarker/RF_model/CRC_HC_DEA.csv")
 ```{r}
 SVM_model <- function(dataset=ExprSet_Discovery,
                       testres=CRC_HC_DEA,
+                      group_info="SubGroup",
                       group_name=subgrp[c(1, 3)],
                       Pname="adj.P.Val",
                       Pval=0.05,
@@ -85,6 +86,7 @@ SVM_model <- function(dataset=ExprSet_Discovery,
   
   # dataset=ExprSet_Discovery
   # testres=CRC_HC_DEA
+  # group_info="SubGroup"
   # group_name=subgrp[c(1, 3)]
   # Pname="adj.P.Val"
   # Pval=0.05
@@ -99,45 +101,50 @@ SVM_model <- function(dataset=ExprSet_Discovery,
   colnames(testres)[which(colnames(testres) == Pname)] <- "PValue"
   
   if(Pval == 0){
-    dat_DEP <- testres %>% dplyr::select(GeneID, PValue)
+    dat_DEP <- testres %>% dplyr::select(FeatureID, PValue)
   }else{
     if(LogFC > 0){
-      dat_DEP <- testres %>% dplyr::select(GeneID, PValue, logFC) %>%
+      dat_DEP <- testres %>% dplyr::select(FeatureID, PValue, logFC) %>%
         filter(PValue < Pval) %>%
         filter(abs(logFC) > LogFC)    
     }else{
-      dat_DEP <- testres %>% dplyr::select(GeneID, PValue) %>%
+      dat_DEP <- testres %>% dplyr::select(FeatureID, PValue) %>%
         filter(PValue < Pval)    
     }  
   }
   print(paste0("DE Features: ", dim(dat_DEP)[1]))
+  
+  
+  phenotype <- pData(dataset)
+  profile <- exprs(dataset)
+  colnames(phenotype)[which(colnames(phenotype) == group_info)] <- "Group"
+  
   # dataset of Tax
   if(length(group_name) == 3){
     group_name2 <- c("CRC", "non_CRC")
-    pheno <- pData(dataset) %>%
+    pheno <- phenotype %>%
       rownames_to_column("SampleID") %>%
-      filter(SubGroup%in%group_name) %>%
-      mutate(SubGroup=ifelse(SubGroup == group_name2[1], group_name2[1], group_name2[2])) %>%
-      mutate(SubGroup=factor(SubGroup, levels = group_name2)) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(Group=factor(Group, levels = group_name2)) %>%
       column_to_rownames("SampleID")
     group_name <- group_name2
   }else{
-    pheno <- pData(dataset) %>%
+    pheno <- phenotype %>%
       rownames_to_column("SampleID") %>%
-      filter(SubGroup%in%group_name) %>%
-      mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name)) %>%
       column_to_rownames("SampleID")
   }
-  print(table(pheno$SubGroup))
+  print(table(pheno$Group))
   
-  profile <- exprs(dataset)
-  edata <- profile[rownames(profile)%in%dat_DEP$GeneID, 
+  edata <- profile[rownames(profile)%in%dat_DEP$FeatureID, 
                    colnames(profile)%in%rownames(pheno)] %>% 
     data.frame()
   
   # Data of whole feature 
   mdat <- inner_join(pheno %>% rownames_to_column("SampleID") %>%
-                       dplyr::select(SampleID, SubGroup),
+                       dplyr::select(SampleID, Group),
                      edata %>% t() %>% data.frame() %>%
                        rownames_to_column("SampleID"),
                      by = "SampleID") %>%
@@ -148,7 +155,7 @@ SVM_model <- function(dataset=ExprSet_Discovery,
     feature_cor <- Hmisc::rcorr(as.matrix(mdat[, -1]), type = "spearman")
     index_cor <- findCorrelation(feature_cor$r, cutoff = Rho, verbose = TRUE)
     feature_remain <- feature_cor$r[-index_cor, -index_cor]
-    mdat_remain <- mdat %>% dplyr::select(c("SubGroup", rownames(feature_remain)))     
+    mdat_remain <- mdat %>% dplyr::select(c("Group", rownames(feature_remain)))     
   }else{
     mdat_remain <- mdat
   }
@@ -161,7 +168,7 @@ SVM_model <- function(dataset=ExprSet_Discovery,
                            rerank=TRUE)
   rfebreaks <- seq(2, ncol(mdat_remain), 2)
   rfefit <- rfe(mdat_remain[, -1],
-                mdat_remain$SubGroup,
+                mdat_remain$Group,
                 sizes=rfebreaks,
                 rfeControl=rfeControl,
                 method="svmRadial")
@@ -193,7 +200,7 @@ SVM_model <- function(dataset=ExprSet_Discovery,
     rownames_to_column("feature") %>%
     filter(feature%in%rfefit$optVariables) %>%
     arrange(desc(Overall))
-  mdat_remain_v2 <- mdat_remain %>% dplyr::select(c("SubGroup", rfeImp$feature))
+  mdat_remain_v2 <- mdat_remain %>% dplyr::select(c("Group", rfeImp$feature))
   
   print(paste0("Features after RFE: ", dim(mdat_remain_v2)[2] - 1))
   
@@ -203,8 +210,8 @@ SVM_model <- function(dataset=ExprSet_Discovery,
     require(sampling)
     #set.seed(123)
     sample <- sampling::strata(mdat_remain_v2, 
-                       stratanames = "SubGroup", 
-                       size = rev(round(as.numeric(table(mdat_remain_v2$SubGroup)) * SplitPro)),
+                       stratanames = "Group", 
+                       size = rev(round(as.numeric(table(mdat_remain_v2$Group)) * SplitPro)),
                        method = "srswor")
     trainData <- mdat_remain_v2[sample$ID_unit, ]
     testData <- mdat_remain_v2[-sample$ID_unit, ]
@@ -218,7 +225,7 @@ SVM_model <- function(dataset=ExprSet_Discovery,
   trainTransformed <- predict(mdat_preProcess, trainData)
   testTransformed <- predict(mdat_preProcess, testData)
   
-  # dat_table <- as.matrix(trainTransformed %>% dplyr::select(-SubGroup) %>% data.frame())
+  # dat_table <- as.matrix(trainTransformed %>% dplyr::select(-Group) %>% data.frame())
   # plot(density(dat_table))
   
   # construct model
@@ -236,7 +243,7 @@ SVM_model <- function(dataset=ExprSet_Discovery,
                            verboseIter = TRUE)
   
   if(oneFit){
-    fit <- train(SubGroup ~., 
+    fit <- train(Group ~., 
                  data = trainTransformed,
                  method = "rf",
                  trControl = myControl,
@@ -274,7 +281,7 @@ SVM_model <- function(dataset=ExprSet_Discovery,
       train_index_cor <-  findCorrelation(train_cor$r, cutoff = Rho, verbose = TRUE)
       if(length(train_index_cor) == 0){
         # model 
-        fit[[i-2]] <- train(SubGroup ~., 
+        fit[[i-2]] <- train(Group ~., 
                       data = trainTransformed_cln_v2,
                       method = "svmRadial",
                       trControl = myControl,
@@ -330,12 +337,12 @@ SVM_model <- function(dataset=ExprSet_Discovery,
   
   # evaluate the performance of model
   pred_raw <- predict(fit_final, newdata = testData_final, type = "raw")
-  print(confusionMatrix(pred_raw, testData_final$SubGroup))
+  print(confusionMatrix(pred_raw, testData_final$Group))
   pred_prob <- predict(fit_final, newdata = testData_final, type = "prob")  
   
   # define roc and calculate AUC
-  rocobj <- roc(testData_final$SubGroup, pred_prob[, 1])
-  auc <- round(auc(testData_final$SubGroup, pred_prob[, 1]), 3)
+  rocobj <- roc(testData_final$Group, pred_prob[, 1])
+  auc <- round(auc(testData_final$Group, pred_prob[, 1]), 3)
   roc <- tibble(tpr=rocobj$sensitivities,
                 fpr=1 - rocobj$specificities)
   roc_pl <- ggplot(data=roc, aes(x=fpr, y=tpr))+
@@ -379,16 +386,16 @@ model_validation <- function(dataset=ExprSet_Validation,
     group_name2 <- c("CRC", "non_CRC")
     pheno <- pData(dataset) %>%
       rownames_to_column("SampleID") %>%
-      filter(SubGroup%in%group_name) %>%
-      mutate(SubGroup=ifelse(SubGroup == group_name2[1], group_name2[1], group_name2[2])) %>%
-      mutate(SubGroup=factor(SubGroup, levels = group_name2)) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(Group=factor(Group, levels = group_name2)) %>%
       column_to_rownames("SampleID")
     group_name <- group_name2
   }else{
     pheno <- pData(dataset) %>%
       rownames_to_column("SampleID") %>%
-      filter(SubGroup%in%group_name) %>%
-      mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name)) %>%
       column_to_rownames("SampleID")
   }
   
@@ -398,7 +405,7 @@ model_validation <- function(dataset=ExprSet_Validation,
   
   # Data of whole feature 
   mdat <- inner_join(pheno %>% rownames_to_column("SampleID") %>%
-                       dplyr::select(SampleID, SubGroup),
+                       dplyr::select(SampleID, Group),
                      edata %>% t() %>% data.frame() %>%
                        rownames_to_column("SampleID"),
                      by = "SampleID") %>%
@@ -406,12 +413,12 @@ model_validation <- function(dataset=ExprSet_Validation,
   
   # evaluate the performance of model
   pred_raw <- predict(datfit, newdata = mdat, type = "raw")
-  print(confusionMatrix(pred_raw, mdat$SubGroup))
+  print(confusionMatrix(pred_raw, mdat$Group))
   pred_prob <- predict(datfit, newdata = mdat, type = "prob")  
   
   # define roc and calculate AUC
-  rocobj <- roc(mdat$SubGroup, pred_prob[, 1])
-  auc <- round(auc(mdat$SubGroup, pred_prob[, 1]), 3)
+  rocobj <- roc(mdat$Group, pred_prob[, 1])
+  auc <- round(auc(mdat$Group, pred_prob[, 1]), 3)
   roc <- tibble(tpr=rocobj$sensitivities,
                 fpr=1 - rocobj$specificities)
   roc_pl <- ggplot(data=roc, aes(x=fpr, y=tpr))+
@@ -432,7 +439,7 @@ model_validation <- function(dataset=ExprSet_Validation,
                   text = element_text(size=8, color="black", family="serif"))
   
   # Accuracy
-  CFM <- confusionMatrix(pred_raw, mdat$SubGroup)
+  CFM <- confusionMatrix(pred_raw, mdat$Group)
   CFM_index <- data.frame(Value=CFM$byClass) %>%
     rownames_to_column("Index") %>% 
     rbind(data.frame(Index="Accuracy", Value=as.numeric(CFM$overall[1])))
@@ -454,6 +461,7 @@ if(!dir.exists("../../Result/Biomarker/SVM_model/")){
 #    CRC_HC_SVM <- SVM_model(
 #                      dataset=ExprSet_Discovery,
 #                      testres=CRC_HC_DEA,
+#                      group_info="SubGroup",
 #                      group_name=subgrp[c(1, 3)],
 #                      Pname="adj.P.Val",
 #                      Pval=0.05,
@@ -473,6 +481,7 @@ if(!dir.exists("../../Result/Biomarker/SVM_model/")){
 CRC_HC_SVM <- SVM_model(
                      dataset=ExprSet_Discovery,
                      testres=CRC_HC_DEA,
+                     group_info="SubGroup",
                      group_name=subgrp[c(1, 3)],
                      Pname="adj.P.Val",
                      Pval=0.05,
@@ -484,15 +493,16 @@ CRC_HC_SVM <- SVM_model(
                      times=10,
                      oneFit=TRUE)
 CRC_HC_SVM_validation <- model_validation(
-                       dataset=ExprSet_Validation,
-                       datfit=CRC_HC_SVM$model$fit,
-                       group_name=subgrp[c(1, 3)])
+                           dataset=ExprSet_Validation,
+                           datfit=CRC_HC_SVM$model$fit,
+                           group_name=subgrp[c(1, 3)])
 
 # while(with(CRC_HC_SVM_validation, auc < 0.8 | index$Value[1] < 0.7 | index$Value[2] < 0.7))
 while(with(CRC_HC_SVM_validation, index$Value[12] < 0.7)){
   CRC_HC_SVM <- SVM_model(
                      dataset=ExprSet_Discovery,
                      testres=CRC_HC_DEA,
+                     group_info="SubGroup",
                      group_name=subgrp[c(1, 3)],
                      Pname="adj.P.Val",
                      Pval=0.05,
@@ -504,9 +514,9 @@ while(with(CRC_HC_SVM_validation, index$Value[12] < 0.7)){
                      times=10,
                      oneFit=TRUE)
   CRC_HC_SVM_validation <- model_validation(
-                 dataset=ExprSet_Validation,
-                 datfit=CRC_HC_SVM$model$fit,
-                 group_name=subgrp[c(1, 3)])
+                             dataset=ExprSet_Validation,
+                             datfit=CRC_HC_SVM$model$fit,
+                             group_name=subgrp[c(1, 3)])
 }
 
 saveRDS(CRC_HC_SVM, "../../Result/Biomarker/SVM_model/CRC_HC_SVM_Discovery.RDS", compress = TRUE)

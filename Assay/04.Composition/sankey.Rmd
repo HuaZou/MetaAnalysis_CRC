@@ -44,11 +44,13 @@ table(pData(ExprSet)$SubGroup)
 sankey_plot <- function(datset=ExprSet,
                         group_info="SubGroup",
                         group_name=subgrp[c(1,3)],
+                        occurrence=0.2,
                         ntop=20){
   
   # datset=ExprSet
   # group_info="SubGroup"
   # group_name=subgrp[c(1, 3)]
+  # occurrence=0.2
   # ntop=20
   
   phenotype <- pData(datset)
@@ -70,7 +72,13 @@ sankey_plot <- function(datset=ExprSet,
       filter(Group%in%group_name) %>%
       mutate(Group=factor(Group, levels = group_name))
   }  
-  edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% data.frame()
+  #edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% data.frame()
+  
+  edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% data.frame() %>% 
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp")   
   
   mdat <- inner_join(pheno %>% dplyr::select(SampleID, Group),
                      edata %>% t() %>% data.frame() %>%

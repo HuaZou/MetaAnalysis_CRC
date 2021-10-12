@@ -41,13 +41,13 @@ table(pData(ExprSet)$SubGroup)
 ```{r}
 # T-test or Wilcox-test
 DEA_test <- function(dataset=ExprSet,
-                     group_name=subgrp,
+                     group_name=subgrp[c(1,3)],
                      occurrence=0.2,
                      Pval=0.05,
                      logFC=0.5){
   
   # dataset=ExprSet
-  # group_name=subgrp[c(1, 3)]
+  # group_name=subgrp[c(1,3)]
   # occurrence=0.2
   # Pval=0.05
   # logFC=0.5
@@ -67,7 +67,7 @@ DEA_test <- function(dataset=ExprSet,
       filter(SubGroup%in%group_name) %>%
       mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
       column_to_rownames("SampleID")
-  }
+  }  
   # edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame()
   
   edata <- exprs(dataset)[, rownames(pheno)] %>% data.frame() %>% 
@@ -131,7 +131,7 @@ DEA_test <- function(dataset=ExprSet,
   if(nrow(Non_Normal_prof) != 0){
     # non-Normally distributed proteins
     Wilcox_res <- apply(Non_Normal_prof, 1, function(x, y){
-      dat <- data.frame(value=as.numeric(Non_Normal_prof[1, ]), group=pheno$SubGroup)
+      # dat <- data.frame(value=as.numeric(Non_Normal_prof[1, ]), group=pheno$SubGroup)
       dat <- data.frame(value=as.numeric(x), group=y)
       mn <- tapply(dat$value, dat$group, mean) %>% # compositions::geometricmean
         data.frame() %>% setNames("value") %>%

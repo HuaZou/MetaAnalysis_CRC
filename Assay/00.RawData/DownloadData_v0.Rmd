@@ -68,8 +68,8 @@ get_profile <- function(Disease="CRC",
   return(datset_final)
 }
 
-if(!dir.exists("./curatedMetagenomicData/")){
-  dir.create("./curatedMetagenomicData/", recursive = T)
+if(!dir.exists("../../Study/curatedMetagenomicData/")){
+  dir.create("../../Study/curatedMetagenomicData/", recursive = T)
 }
 ```
 
@@ -78,7 +78,7 @@ if(!dir.exists("./curatedMetagenomicData/")){
 ```{r}
 metaphlan_profile <- get_profile(Disease="CRC", Datype="metaphlan_bugs_list.stool")
 metaphlan_profile
-saveRDS(metaphlan_profile, "./curatedMetagenomicData/CRC_metaphlan_Origin.RDS", compress = TRUE)
+saveRDS(metaphlan_profile, "../../Study/curatedMetagenomicData/CRC_metaphlan_Origin.RDS", compress = TRUE)
 ```
 
 
@@ -86,7 +86,7 @@ saveRDS(metaphlan_profile, "./curatedMetagenomicData/CRC_metaphlan_Origin.RDS", 
 ```{r}
 genefamilies_profile <- get_profile(Disease="CRC", Datype="genefamilies_relab.stool")
 genefamilies_profile
-saveRDS(genefamilies_profile, "./curatedMetagenomicData/CRC_genefamilies_relab_Origin.RDS", compress = TRUE)
+saveRDS(genefamilies_profile, "../../Study/curatedMetagenomicData/CRC_genefamilies_relab_Origin.RDS", compress = TRUE)
 ```
 
 
@@ -94,7 +94,7 @@ saveRDS(genefamilies_profile, "./curatedMetagenomicData/CRC_genefamilies_relab_O
 ```{r}
 marker_presence_profile <- get_profile(Disease="CRC", Datype="marker_presence.stool")
 marker_presence_profile
-saveRDS(marker_presence_profile, "./curatedMetagenomicData/CRC_marker_presence_Origin.RDS", compress = TRUE)
+saveRDS(marker_presence_profile, "../../Study/curatedMetagenomicData/CRC_marker_presence_Origin.RDS", compress = TRUE)
 ```
 
 
@@ -102,7 +102,7 @@ saveRDS(marker_presence_profile, "./curatedMetagenomicData/CRC_marker_presence_O
 ```{r}
 pathabundance_profile <- get_profile(Disease="CRC", Datype="pathabundance_relab.stool")
 pathabundance_profile
-saveRDS(pathabundance_profile, "./curatedMetagenomicData/CRC_pathabundance_relab_Origin.RDS", compress = TRUE)
+saveRDS(pathabundance_profile, "../../Study/curatedMetagenomicData/CRC_pathabundance_relab_Origin.RDS", compress = TRUE)
 ```
 
 
@@ -110,7 +110,7 @@ saveRDS(pathabundance_profile, "./curatedMetagenomicData/CRC_pathabundance_relab
 ```{r}
 marker_abundance_profile <- get_profile(Disease="CRC", Datype="marker_abundance.stool")
 marker_abundance_profile
-saveRDS(marker_abundance_profile, "./curatedMetagenomicData/CRC_marker_abundance_Origin.RDS", compress = TRUE)
+saveRDS(marker_abundance_profile, "../../Study/curatedMetagenomicData/CRC_marker_abundance_Origin.RDS", compress = TRUE)
 ```
 
 
@@ -118,7 +118,7 @@ saveRDS(marker_abundance_profile, "./curatedMetagenomicData/CRC_marker_abundance
 ```{r}
 pathcoverage_profile <- get_profile(Disease="CRC", Datype="pathcoverage.stool")
 pathcoverage_profile
-saveRDS(pathcoverage_profile, "./curatedMetagenomicData/CRC_pathcoverage_Origin.RDS", compress = TRUE)
+saveRDS(pathcoverage_profile, "../../Study/curatedMetagenomicData/CRC_pathcoverage_Origin.RDS", compress = TRUE)
 ```
 
 

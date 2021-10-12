@@ -43,26 +43,39 @@ ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
 ```{r}
 Maaslin2Fun <- function(dataset=ExprSet,
                         group_info="SubGroup",
-                        group_name=subgrp,
+                        group_name=subgrp[c(1,3)],
+                        occurrence=0.2,
                         taxa="species"){
   
   # dataset=ExprSet
   # group_info="SubGroup"
-  # group_name=subgrp
+  # group_name=subgrp[c(1,3)]
+  # occurrence=0.2
   # taxa="species"
   
   require(convert)
-  metadata <- pData(dataset) %>% rownames_to_column("SampleID")
-  profile <- t(exprs(dataset)) %>% data.frame()
-  colnames(metadata)[which(colnames(metadata) == group_info)] <- "Group"
+  phenotype <- pData(dataset)
+  profile <- exprs(dataset)
+  colnames(phenotype)[which(colnames(phenotype) == group_info)] <- "Group"
+
+  pheno <- phenotype %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name))
+  prof <- profile[, colnames(profile)%in%pheno$SampleID] %>% data.frame() %>% 
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp") %>%
+    t() %>% data.frame()
   
-  mdat <- inner_join(metadata,
-                     profile %>% rownames_to_column("SampleID"),
+  mdat <- inner_join(pheno,
+                     prof %>% rownames_to_column("SampleID"),
                      by = "SampleID") %>%
     column_to_rownames("SampleID")
   
-  input_data <- mdat[, c(ncol(metadata):ncol(mdat))] 
-  input_metadata <- mdat[, c(1:(ncol(metadata)-1))]
+  input_data <- mdat[, c(ncol(pheno):ncol(mdat))] 
+  input_metadata <- mdat[, c(1:(ncol(pheno)-1))]
   for(i in 1:ncol(input_metadata)){
     if(!is.numeric(input_metadata[, i])){
       input_metadata[, i] <- as.numeric(factor(input_metadata[, i]))
@@ -95,7 +108,7 @@ Maaslin2Fun <- function(dataset=ExprSet,
                   heatmap_first_n = 50)
 }
 
-Maaslin2Fun(dataset=ExprSet,taxa="species")
+Maaslin2Fun(dataset=ExprSet, taxa="species")
 ```
 
 

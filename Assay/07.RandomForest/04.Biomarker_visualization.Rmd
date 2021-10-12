@@ -1,0 +1,50 @@
+---
+title: "Visualizaion of Biomarkers choosing by RandomForest"
+date: "Created: 2021-10-09 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+Discovery Set
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(convert)
+library(ggplot2)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data
+```{r}
+ExprSet <- readRDS("../../Result/Biomarker/RF_model/species_profile_Discovery.RDS")
+modelfit <- readRDS("../../Result/Biomarker/RF_model")
+```
+
+
+### Differential Expression Analysis
+```{r}
+
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+

@@ -18,9 +18,11 @@ library(microbiome)
 library(phyloseq)
 library(RColorBrewer) 
 library(ggpubr) 
+# devtools::install_github("zdk123/SpiecEasi")
 library(SpiecEasi) 
 library(network)
 library(intergraph)
+# devtools::install_github("briatte/ggnet")
 library(ggnet)
 library(igraph)
 
@@ -45,11 +47,13 @@ table(pData(ExprSet)$SubGroup)
 ```{r}
 SparCC_fun <- function(datset=ExprSet,
                        group_info="SubGroup",
-                       group_name=subgrp[c(1,3)]){
+                       group_name=subgrp[c(1,3)],
+                       occurrence=0.2){
   
   # datset=ExprSet
   # group_info="SubGroup"
-  # group_name=subgrp[c(1, 3)]
+  # group_name=subgrp[c(1,3)]
+  # occurrence=0.2
   
   phenotype <- pData(datset)
   profile <- exprs(datset)
@@ -70,8 +74,15 @@ SparCC_fun <- function(datset=ExprSet,
       filter(Group%in%group_name) %>%
       mutate(Group=factor(Group, levels = group_name))
   }  
-  edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% 
-    t() %>% data.frame()
+  # edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% 
+  #   t() %>% data.frame()
+
+  edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% data.frame() %>% 
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp") %>% 
+    t() %>% data.frame()     
   
   mdat <- inner_join(pheno %>% dplyr::select(SampleID, Group),
                      edata %>% rownames_to_column("SampleID"),

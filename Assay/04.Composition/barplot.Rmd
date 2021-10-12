@@ -45,11 +45,13 @@ table(pData(ExprSet)$SubGroup)
 ```{r}
 wilcox_fun <- function(datset=ExprSet,
                        group_info="SubGroup",
-                       group_name=subgrp[c(1, 3)]){
+                       group_name=subgrp[c(1, 3)],
+                       occurrence=0.2){
   
   # datset=ExprSet
   # group_info="SubGroup"
   # group_name=subgrp[c(1, 3)]
+  # occurrence=0.2
   
   phenotype <- pData(datset)
   profile <- exprs(datset)
@@ -70,7 +72,13 @@ wilcox_fun <- function(datset=ExprSet,
       filter(Group%in%group_name) %>%
       mutate(Group=factor(Group, levels = group_name))
   }  
-  edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% data.frame()
+  # edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% data.frame()
+  
+  edata <- profile[, colnames(profile)%in%pheno$SampleID] %>% data.frame() %>% 
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp")  
   
   # determine x with two cols and names are corret
   phen <- pheno %>% dplyr::select(SampleID, Group)

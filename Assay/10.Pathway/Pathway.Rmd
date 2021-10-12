@@ -1,0 +1,42 @@
+---
+title: "Pathway alterations in the gut microbiome"
+date: "Created: 2021-10-09 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+options(warn = 0)
+library(dplyr)
+library(tibble)
+library(data.table)
+library(ggplot2)
+options(warn = 0)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Study/curatedMetagenomicData/CRC_pathway_abundance_Origin.RDS")
+ExprSet
+```
+
+
+### Systemic information
+```{r}
+sessionInfo()
+```
