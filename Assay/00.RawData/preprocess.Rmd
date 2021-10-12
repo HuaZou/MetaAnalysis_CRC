@@ -32,10 +32,9 @@ grp.col <- c("#568875", "#73FAFC", "#EE853D")
 ```
 
 
-### Input data
+### Importing Data
 ```{r}
 relative_abundance <- readRDS("../../Study/curatedMetagenomicData/CRC_relative_abundance_Origin.RDS")
-# pathway_abundance <- readRDS("../../Study/curatedMetagenomicData/CRC_pathway_abundance_Origin.RDS")
 ```
 
 
