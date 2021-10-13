@@ -247,7 +247,7 @@ UMAPFun <- function(dataset=ExprSet,
   
   # umap 
   require(umap)
-  umap <- umap::umap(profile)
+  umap <- umap::umap(prof)
   
   point <- umap$layout %>% data.frame() %>%
     setNames(c("UMAP1", "UMAP2"))
