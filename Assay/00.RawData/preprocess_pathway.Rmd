@@ -28,7 +28,7 @@ grp.col <- c("#568875", "#73FAFC", "#EE853D")
 ```
 
 
-### Importing Data
+### Input data
 ```{r}
 pathway_abundance <- readRDS("../../Study/curatedMetagenomicData/CRC_pathway_abundance_Origin.RDS")
 ```
@@ -39,8 +39,8 @@ pathway_abundance <- readRDS("../../Study/curatedMetagenomicData/CRC_pathway_abu
 get_ExprSet <- function(dataset=pathway_abundance,
                         occurrence=0.2){
   
-  dataset=pathway_abundance
-  occurrence=0.2
+  # dataset=pathway_abundance
+  # occurrence=0.2
   
   assay(dataset) -> assay_data
   colData(dataset) -> col_data
@@ -56,7 +56,6 @@ get_ExprSet <- function(dataset=pathway_abundance,
     mutate(temp=gsub("-", "_", temp)) %>%
     column_to_rownames("temp")
   
-  
   profile <- data.frame(assay_data)
   colnames(profile) <- gsub("-", "_", colnames(assay_data))
   rownames(profile) <- gsub(" ", "_", rownames(assay_data))  
@@ -69,32 +68,62 @@ get_ExprSet <- function(dataset=pathway_abundance,
            species=unlist(strsplit(taxaID, "\\."))[2])
   rownames(feature) <- rownames(profile)
   
-  #sid <- intersect(colnames(profile), rownames(phenotype))
-  
-  profile_cln <- profile %>% dplyr::select(rownames(phenotype)) %>%
+  # pathway only 
+  prof_pathway <- profile[rownames(profile)%in%subset(feature, is.na(taxaID))$featureID, ]
+  prof_pathway_cln <- prof_pathway %>% dplyr::select(rownames(phenotype)) %>%
     rownames_to_column("tmp") %>%
     filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
             sum(x != 0)/length(x)}) > occurrence) %>%
     column_to_rownames("tmp")
-    
+  
+  # pathway with taxa 
+  prof_pathway_taxa <- profile[rownames(profile)%in%subset(feature, !is.na(taxaID))$featureID, ]
+  # prof_pathway_taxa_cln <- prof_pathway_taxa %>% dplyr::select(rownames(phenotype)) %>%
+  #   rownames_to_column("tmp") %>%
+  #   filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+  #           sum(x != 0)/length(x)}) > occurrence) %>%
+  #   column_to_rownames("tmp")
+  prof_pathway_taxa_cln <- prof_pathway_taxa %>% dplyr::select(rownames(phenotype))   
+  feature_taxa <- subset(feature, featureID%in%rownames(prof_pathway_taxa_cln))
+  rownames(feature_taxa) <- feature_taxa$featureID
+
+  if(!any(rownames(phenotype) == colnames(prof_pathway_cln))){
+    stop("The Order of SampleID in prof_pathway is wrong")
+  }
+  
+  if(!any(rownames(phenotype) == colnames(prof_pathway_taxa_cln))){
+    stop("The Order of SampleID in prof_pathway_taxa is wrong")
+  }  
+  
   require(convert)
-  exprs <- as.matrix(profile_cln)/100  # normalization
+  exprs_pathway <- as.matrix(prof_pathway_cln)/100  # normalization
+  exprs_pathway_taxa <- as.matrix(prof_pathway_taxa_cln)/100
   adf <- new("AnnotatedDataFrame", data=phenotype)
-  fdf <- new("AnnotatedDataFrame", data=feature_cln)
+  fdf_taxa <- new("AnnotatedDataFrame", data=feature_taxa)
   experimentData <- new("MIAME",
           name="Hua Zou", lab="UCAS",
           contact="zouhua1@outlook.com",
           title="Tumor Experiment",
-          abstract="Pathway Profile",
+          abstract="Profile",
           url="www.zouhua.top",
           other=list(notes="microbiota"))
-  expressionSet <- new("ExpressionSet",
-                       exprs=exprs,
-                       phenoData=adf,
-                       featureData=fdf,
-                       experimentData=experimentData)
+  expressionSet_pathway <- new(
+                             "ExpressionSet",
+                             exprs=exprs_pathway,
+                             phenoData=adf,
+                             #featureData=fdf,
+                             experimentData=experimentData)
+  expressionSet_pathway_taxa <- new(
+                             "ExpressionSet",
+                             exprs=exprs_pathway_taxa,
+                             phenoData=adf,
+                             featureData=fdf_taxa,
+                             experimentData=experimentData)
   
-  res <- list(tse=data_tse, es=expressionSet, prf=exprs, phe=phenotype)
+  res <- list(prof_pathway=exprs_pathway, 
+              prof_pathway_taxa=exprs_pathway_taxa, 
+              expr_pathway=expressionSet_pathway, 
+              expr_pathway_taxa=expressionSet_pathway_taxa)
   
   return(res)
 }
@@ -102,16 +131,17 @@ get_ExprSet <- function(dataset=pathway_abundance,
 if(!dir.exists("../../Result/Profile/")){
   dir.create("../../Result/Profile/", recursive = T)
 }
-
-if(!dir.exists("../../Result/Phenotype/")){
-  dir.create("../../Result/Phenotype/", recursive = T)
-}
 ```
 
 
-### pathway abundance
+### pathway
 ```{r}
-dat_abundance <- get_ExprSet(dataset=pathway_abundance, occurrence=0.2)
+pathway_abun <- get_ExprSet(dataset=pathway_abundance, occurrence=0.2)
+
+saveRDS(pathway_abun$expr_pathway, "../../Result/Profile/pathway_ExprSet.RDS")
+saveRDS(pathway_abun$expr_pathway_taxa, "../../Result/Profile/pathway_taxa_ExprSet.RDS")
+write.table(pathway_abun$prof_pathway, "../../Result/Profile/pathway_profile.tsv", quote = F, row.names = T, sep = "\t")
+write.table(pathway_abun$prof_pathway_taxa, "../../Result/Profile/pathway_taxa_profile.tsv", quote = F, row.names = T, sep = "\t")
 ```
 
 

@@ -1,6 +1,6 @@
 ---
-title: "Pathway alterations in the gut microbiome"
-date: "Created: 2021-10-09 Updated: `r Sys.Date()`"
+title: "Functionality alterations: Differential Analysis"
+date: "Created: 2021-10-18 Updated: `r Sys.Date()`"
 author: 
   - name: "Hua Zou"
     email: "zouhua1@outlook.com"
@@ -9,15 +9,13 @@ output:
     codes: hide
 ---
 
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(warning = F, message = F)
-options(warn = 0)
 library(dplyr)
 library(tibble)
-library(data.table)
+library(convert)
 library(ggplot2)
-options(warn = 0)
+library(ggrepel)
 
 # rm(list = ls())
 options(stringsAsFactors = F)
@@ -29,14 +27,374 @@ grp.col <- c("#568875", "#73FAFC", "#EE853D")
 ```
 
 
-### Importing Data 
+### Input data
 ```{r}
-ExprSet <- readRDS("../../Study/curatedMetagenomicData/CRC_pathway_abundance_Origin.RDS")
-ExprSet
+ExprSet <- readRDS("../../Result/Profile/pathway_ExprSet.RDS")
 ```
 
 
-### Systemic information
+### Differential Expression Analysis
+```{r}
+DEA_test <- function(dataset=ExprSet,
+                     group_info="SubGroup",
+                     group_name=subgrp[c(3,2,1)],
+                     occurrence=0.2,
+                     Pval=0.05,
+                     logFC=0.5){
+
+  # dataset=ExprSet
+  # group_info="SubGroup"
+  # group_name=subgrp[c(3,2,1)]
+  # occurrence=0.2
+  # Pval=0.05
+  # logFC=0.5
+
+  phenotype <- pData(dataset)
+  profile <- exprs(dataset)
+  phenotype_cln <- phenotype %>% dplyr::select(all_of(group_info))
+  colnames(phenotype_cln)[which(colnames(phenotype_cln) == group_info)] <- "Group"
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- phenotype_cln %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(Group=factor(Group, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- phenotype_cln %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  print(table(pheno$Group))
+
+  edata <- profile[, rownames(pheno)] %>% data.frame() %>%
+      rownames_to_column("tmp") %>%
+    filter(apply(dplyr::select(., -one_of("tmp")), 1, function(x) {
+            sum(x != 0)/length(x)}) > occurrence) %>%
+    column_to_rownames("tmp")
+
+  if(length(unique(pheno$Group)) != 2){
+    stop("Levels of Group must be 2 levels")
+  }
+
+  # Checking whether the two groups that where tested were normally distributed using the Shapiro-Wilk test
+  shapiro_res <- apply(edata, 1, function(x, y){
+    #dat <- data.frame(value=as.numeric(edata[1, ]), group=pheno$Group)
+    dat <- data.frame(value=x, group=y)
+    t_res <- tapply(dat$value, dat$group, shapiro.test)
+    if(t_res[[1]]$p.value < 0.05){
+      res <- FALSE
+    }else{
+      res <- TRUE
+    }
+    return(res)
+  }, pheno$Group) %>%
+    data.frame() %>%
+    setNames("Normal") %>%
+    rownames_to_column("FeatureID")
+
+  Normal_prof <- edata[shapiro_res$Normal, ]
+  Non_Normal_prof <- edata[!shapiro_res$Normal, ]
+
+  if(nrow(Normal_prof) != 0){
+    # Normally distributed proteins
+    require(rstatix)
+    Welch_res <- apply(Normal_prof, 1, function(x, y){
+      dat <- data.frame(value=x, group=y)
+      mn <- tapply(dat$value, dat$group, median) %>% # compositions::geometricmean
+        data.frame() %>% setNames("value") %>%
+        rownames_to_column("Group")
+      mn1 <- with(mn, mn[Group%in%group_name[1], "value"])
+      mn2 <- with(mn, mn[Group%in%group_name[2], "value"])
+      if(all(mn1 > 0, mn2 > 0)){
+        Log2FC <- log2(mn1/mn2)
+      }else{
+        Log2FC <- -log2(mn1/mn2)
+      }
+      rest <- t_test(data = dat, value ~ group)
+      return(c(Log2FC, rest$statistic, rest$p))
+    }, pheno$Group) %>%
+      t() %>% data.frame() %>%
+      setNames(c("logFC", "Statistic", "P.value"))
+    Normal_res <- Welch_res %>%
+      filter(!is.nan(logFC)) %>%
+      filter(!is.infinite(logFC)) %>%
+      rownames_to_column("FeatureID") %>%
+      arrange(desc(abs(logFC)), P.value)
+  }else{
+    Normal_res <- data.frame()
+  }
+
+  if(nrow(Non_Normal_prof) != 0){
+    # non-Normally distributed proteins
+    Wilcox_res <- apply(Non_Normal_prof, 1, function(x, y){
+      dat <- data.frame(value=as.numeric(x), group=y)
+      mn <- tapply(dat$value, dat$group, median) %>% # compositions::geometricmean
+        data.frame() %>% setNames("value") %>%
+        rownames_to_column("Group")
+      mn1 <- with(mn, mn[Group%in%group_name[1], "value"])
+      mn2 <- with(mn, mn[Group%in%group_name[2], "value"])
+      if(all(mn1 > 0, mn2 > 0)){
+        Log2FC <- log2(mn1/mn2)
+      }else{
+        Log2FC <- -log2(mn1/mn2)
+      }
+      rest <- wilcox.test(data = dat, value ~ group)
+      return(c(Log2FC, rest$statistic, rest$p.value))
+    }, pheno$Group) %>%
+      t() %>% data.frame() %>%
+      setNames(c("logFC", "Statistic", "P.value"))
+    Non_Normal_res <- Wilcox_res %>%
+      filter(!is.nan(logFC)) %>%
+      filter(!is.infinite(logFC)) %>%
+      rownames_to_column("FeatureID") %>%
+      arrange(desc(abs(logFC)), P.value)
+  }else{
+    Non_Normal_res <- data.frame()
+  }
+
+
+  # Number & Block
+  res <- rbind(Normal_res, Non_Normal_res)
+  res$adj.P.Val <- p.adjust(as.numeric(res$P.value), method = "BH")
+
+  dat_status <- table(pheno$Group)
+  dat_status_number <- as.numeric(dat_status)
+  dat_status_name <- names(dat_status)
+  res$Block <- paste(paste(dat_status_number[1], dat_status_name[1], sep = "_"),
+                         "vs",
+                         paste(dat_status_number[2], dat_status_name[2], sep = "_"))
+  # Enrichment
+  res[which(res$logFC > logFC & res$adj.P.Val < Pval), "Enrichment"] <- group_name[1]
+  res[which(res$logFC < -logFC & res$adj.P.Val < Pval), "Enrichment"] <- group_name[2]
+  res[which(abs(res$logFC) <= logFC | res$adj.P.Val >= Pval), "Enrichment"] <- "Nonsignif"
+
+  res_final <- res %>% dplyr::select(FeatureID, Block, logFC, adj.P.Val, Enrichment, everything()) %>%
+    arrange(adj.P.Val, logFC)
+
+  return(res_final)
+}
+
+
+VolcanoFun <- function(datset=CRC_nonCRC_DEA,
+                       pathwaylist=c("PWY-7204:_pyridoxal_5'-phosphate_salvage_II_(plants)",
+                                  "PWY-6285:_superpathway_of_fatty_acids_biosynthesis_(E._coli)",
+                                  "PWY-4702:_phytate_degradation_I",
+                                  "P162-PWY:_L-glutamate_degradation_V_(via_hydroxyglutarate)"),
+                       group_name=subgrp[c(3,2,1)],
+                       group_col=grp.col[c(3,1)],
+                       Pval=0.05,
+                       LogFC=1){
+
+  # datset=CRC_nonCRC_DEA
+  # pathwaylist="PWY-7204:_pyridoxal_5'-phosphate_salvage_II_(plants)"
+  # group_name=subgrp[c(3,2,1)]
+  # group_col=grp.col[c(3,1)]
+  # Pval=0.05
+  # LogFC=1
+
+  if(length(group_name) == 3){
+      group_name2 <- c("CRC", "non_CRC")
+      group_name <- group_name2
+    }
+
+  dat <- datset %>%
+    mutate(color=factor(Enrichment,
+                        levels = c(group_name, "Nonsignif")))
+  # print(table(dat$color))
+  dat_status <- table(dat$color)
+  dat_status_number <- as.numeric(dat_status)
+  dat_status_name <- names(dat_status)
+  legend_label <- c(paste0(dat_status_name[1], " (", dat_status_number[1], ")"),
+                    paste0(dat_status_name[2], " (", dat_status_number[2], ")"),
+                    paste0("Nonsignif", " (", dat_status_number[3], ")"))
+
+  dat.signif <- subset(dat, adj.P.Val < Pval & abs(logFC) > LogFC) %>%
+    filter(FeatureID%in%pathwaylist)
+  print(table(dat.signif$color))
+  
+  if(dat_status_number[1] != 0 & dat_status_number[2] != 0){
+    group_col_new <- c(rev(group_col), "grey80")
+  }else if(dat_status_number[1] != 0){
+    group_col_new <- c(group_col[1], "grey80")
+  }else{
+    group_col_new <- c(group_col[2], "grey80")
+  }
+  group_name_new <- levels(dat$color)
+
+  xlabel <- paste0("log2(", paste(group_name, collapse="/"), ")")
+
+  # Make a basic ggplot2 object with x-y values
+  pl <- ggplot(dat, aes(x=logFC, y=-log10(adj.P.Val), color=color))+
+          geom_point(size=2, alpha=1, stroke=1)+
+          # geom_point(aes(fill=color), size=2, shape=21, stroke=.5, color="grey")+
+          # scale_fill_manual(name = NULL,
+          #                    values = group_col_new,
+          #                    labels = c(legend_label, "Nonsignif"))+
+          scale_color_manual(name=NULL,
+                             values=group_col_new,
+                             labels=legend_label)+
+          xlab(xlabel) +
+          ylab(expression(-log[10]("adjusted p-value")))+
+          geom_hline(yintercept=-log10(Pval), alpha=.8, linetype=2, size=.7)+
+          geom_vline(xintercept=LogFC, alpha=.8, linetype=2, size=.7)+
+          geom_vline(xintercept=-LogFC, alpha=.8, linetype=2, size=.7)+
+          geom_text_repel(data = dat.signif,
+                          aes(label = FeatureID),
+                          size = 4,
+                          max.overlaps = getOption("ggrepel.max.overlaps", default = 80),
+                          segment.linetype = 1,
+                          segment.curvature = -1e-20,
+                          box.padding = unit(0.35, "lines"),
+                          point.padding = unit(0.3, "lines"),
+                          arrow = arrow(length = unit(0.005, "npc")),
+                          color = "black",     # text color
+                          bg.color = "white", # shadow color
+                          bg.r = 0.15)+
+          annotate("text", x=min(dat$logFC), y=-log10(Pval), label=Pval, size=6, color="red")+
+          annotate("text", x=LogFC, y=0, label=LogFC, size=6, color="red")+
+          annotate("text", x=-LogFC, y=0, label=-LogFC, size=6, color="red")+
+          scale_y_continuous(trans = "log1p")+
+          guides(color=guide_legend(override.aes = list(size = 3)))+
+          theme_bw()+
+          theme(axis.title = element_text(color = "black", size = 12),
+                axis.text = element_text(color = "black", size = 10),
+                text = element_text(size = 8, color = "black", family="serif"),
+                panel.grid = element_blank(),
+                #legend.position = "right",
+                legend.position = c(.15, .1),
+                legend.key.height = unit(0.6,"cm"),
+                legend.text = element_text(face = "bold", color = "black", size = 8),
+                strip.text = element_text(face = "bold", size = 14))
+  return(pl)
+}
+
+BoxplotFun <- function(datset=ExprSet,
+                       pathwaylist=c("PWY-7204:_pyridoxal_5'-phosphate_salvage_II_(plants)",
+                                  "PWY-6285:_superpathway_of_fatty_acids_biosynthesis_(E._coli)",
+                                  "PWY-4702:_phytate_degradation_I",
+                                  "P162-PWY:_L-glutamate_degradation_V_(via_hydroxyglutarate)"),
+                       group_name=subgrp[c(3,2,1)],
+                       group_col=grp.col[c(3,1)]){
+
+  # datset=ExprSet
+  # pathwaylist=c("PWY-7204:_pyridoxal_5'-phosphate_salvage_II_(plants)",
+  #            "PWY-6285:_superpathway_of_fatty_acids_biosynthesis_(E._coli)",
+  #            "PWY-4702:_phytate_degradation_I",
+  #            "P162-PWY:_L-glutamate_degradation_V_(via_hydroxyglutarate)")
+  # group_name=subgrp[c(3,2,1)]
+  # group_col=grp.col[c(3,1)]
+
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- pData(datset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=ifelse(SubGroup == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- pData(datset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  print(table(pheno$SubGroup))
+
+  edata <- data.frame(exprs(datset)) %>%
+            dplyr::select(rownames(pheno)) %>%
+            rownames_to_column("FeatureID") %>%
+            filter(FeatureID%in%pathwaylist) %>%
+            column_to_rownames("FeatureID")
+
+  mdat <- pheno %>% dplyr::select(SubGroup) %>%
+    rownames_to_column("SampleID") %>%
+    inner_join(t(edata) %>% data.frame() %>% rownames_to_column("SampleID"), by = "SampleID") %>%
+    column_to_rownames("SampleID")
+
+  plotdata <- mdat %>% tidyr::gather(key="FeatureID", value="value", -SubGroup) %>%
+    mutate(SubGroup=factor(SubGroup, levels = group_name))
+
+  pl <- ggplot(plotdata, aes(x=FeatureID, y=value, color=SubGroup))+
+          stat_boxplot(geom="errorbar", width=0.15,
+                       position=position_dodge(0.8))+
+          geom_boxplot(width=0.4,
+                       #outlier.colour="black",
+                       #outlier.shape=21,
+                       #outlier.size=.5,
+                       outlier.size=0, 
+                       alpha=0.8,
+                       position=position_dodge(width=0.8))+
+          geom_point(aes(fill=SubGroup), size=1, shape=21, position=position_jitterdodge())+
+          scale_color_manual(name=NULL,
+                             values=group_col)+
+          labs(x="", y="Pathway Relative Abundance")+
+          guides(fill="none")+
+          theme_classic()+
+          theme(axis.title = element_text(color="black", size=12),
+                axis.text.x = element_text(color="black", size=10, hjust=.5, vjust=.5, angle=60),
+                text = element_text(size=8, color="black", family="serif"),
+                panel.grid = element_blank(),
+                strip.text = element_text(face="bold", size=12))
+
+  return(pl)
+}
+
+if(!dir.exists("../../Result/Differential/Pathway/")){
+  dir.create("../../Result/Differential/Pathway/", recursive = T)
+}
+```
+
+
+### CRC vs nonCRC
+```{r}
+CRC_nonCRC_DEA <- DEA_test(
+                        dataset=ExprSet,
+                        group_info="SubGroup",
+                        group_name=subgrp[c(3,2,1)],
+                        Pval=0.05,
+                        logFC=1)
+write.csv(CRC_nonCRC_DEA, "../../Result/Differential/Pathway/CRC_nonCRC_pathway_DEA.csv", row.names = F)
+```
+
+```{r, fig.width=8, fig.height=6}
+CRC_nonCRC_Volcano <- VolcanoFun(
+                        datset=CRC_nonCRC_DEA,
+                        pathwaylist=c("PWY-7204:_pyridoxal_5'-phosphate_salvage_II_(plants)",
+                                  "PWY-6285:_superpathway_of_fatty_acids_biosynthesis_(E._coli)",
+                                  "PWY-4702:_phytate_degradation_I",
+                                  "P162-PWY:_L-glutamate_degradation_V_(via_hydroxyglutarate)"),
+                        group_name=subgrp[c(3,2,1)],
+                        group_col=grp.col[c(3,1)],
+                        Pval=0.05,
+                        LogFC=1)
+CRC_nonCRC_Volcano
+```
+
+
+```{r, fig.width=8, fig.height=9}
+CRC_nonCRC_Boxplot <- BoxplotFun(
+                       datset=ExprSet,
+                       pathwaylist=c("PWY-7204:_pyridoxal_5'-phosphate_salvage_II_(plants)",
+                                  "PWY-6285:_superpathway_of_fatty_acids_biosynthesis_(E._coli)",
+                                  "PWY-4702:_phytate_degradation_I",
+                                  "P162-PWY:_L-glutamate_degradation_V_(via_hydroxyglutarate)"),
+                       group_name=subgrp[c(3,2,1)],
+                       group_col=grp.col[c(3,1)])
+CRC_nonCRC_Boxplot
+```
+
+
+### systemic information
 ```{r}
 sessionInfo()
 ```
+
+
+### Reference
