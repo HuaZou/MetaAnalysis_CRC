@@ -1,0 +1,542 @@
+---
+title: "Visualization"
+date: "Created: 2021-10-18 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(convert)
+library(ggplot2)
+library(ggrepel)
+library(data.table)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+CRC_HC_DEA <- read.csv("../../Result/Differential/CRC_HC_DEA.csv")
+AA_HC_DEA <- read.csv("../../Result/Differential/AA_HC_DEA.csv")
+```
+
+
+### Function
+```{r}
+VolcanoFun <- function(datset=CRC_HC_DEA,
+                       taxalist=c("Parvimonas_micra"),
+                       group_name=subgrp[c(3,1)],
+                       group_col=grp.col[c(3,1)],
+                       Pval=0.05,
+                       LogFC=0.5){
+
+  # datset=CRC_HC_DEA
+  # taxalist="Parvimonas_micra"
+  # group_name=subgrp[c(3,1)]
+  # group_col=grp.col[c(3,1)]
+  # Pval=0.05
+  # LogFC=0.5
+
+  if(length(group_name) == 3){
+      group_name2 <- c("CRC", "non_CRC")
+      group_name <- group_name2
+    }
+
+  dat <- datset %>%
+    mutate(color=factor(Enrichment,
+                        levels = c(group_name, "Nonsignif")))
+  # print(table(dat$color))
+  dat_status <- table(dat$color)
+  dat_status_number <- as.numeric(dat_status)
+  dat_status_name <- names(dat_status)
+  legend_label <- c(paste0(dat_status_name[1], " (", dat_status_number[1], ")"),
+                    paste0(dat_status_name[2], " (", dat_status_number[2], ")"),
+                    paste0("Nonsignif", " (", dat_status_number[3], ")"))
+
+  dat.signif <- subset(dat, adj.P.Val < Pval & abs(logFC) > LogFC) %>%
+    filter(GeneID%in%taxalist)
+  print(table(dat.signif$color))
+  
+  if(dat_status_number[1] != 0 & dat_status_number[2] != 0){
+    group_col_new <- c(rev(group_col), "grey80")
+  }else if(dat_status_number[1] != 0){
+    group_col_new <- c(group_col[1], "grey80")
+  }else{
+    group_col_new <- c(group_col[2], "grey80")
+  }
+  group_name_new <- levels(dat$color)
+  xlabel <- paste0("log2(", paste(group_name, collapse="/"), ")")
+
+  pl <- ggplot(dat, aes(x=logFC, y=-log10(adj.P.Val), color=color))+
+          geom_point(size=2, alpha=1, stroke=1)+
+          scale_color_manual(name=NULL,
+                             values=group_col_new,
+                             labels=legend_label)+
+          xlab(xlabel) +
+          ylab(expression(-log[10]("adjusted p-value")))+
+          geom_hline(yintercept=-log10(Pval), alpha=.8, linetype=2, size=.7)+
+          geom_vline(xintercept=LogFC, alpha=.8, linetype=2, size=.7)+
+          geom_vline(xintercept=-LogFC, alpha=.8, linetype=2, size=.7)+
+          geom_text_repel(data = dat.signif,
+                          aes(label = GeneID),
+                          size = 4,
+                          max.overlaps = getOption("ggrepel.max.overlaps", default = 80),
+                          segment.linetype = 1,
+                          segment.curvature = -1e-20,
+                          box.padding = unit(0.35, "lines"),
+                          point.padding = unit(0.3, "lines"),
+                          arrow = arrow(length = unit(0.005, "npc")),
+                          color = "black",     # text color
+                          bg.color = "white", # shadow color
+                          bg.r = 0.15)+
+          annotate("text", x=min(dat$logFC), y=-log10(Pval), label=Pval, size=6, color="red")+
+          annotate("text", x=LogFC, y=0, label=LogFC, size=6, color="red")+
+          annotate("text", x=-LogFC, y=0, label=-LogFC, size=6, color="red")+
+          scale_y_continuous(trans = "log1p")+
+          guides(color=guide_legend(override.aes = list(size = 3)))+
+          theme_bw()+
+          theme(axis.title = element_text(color = "black", size = 12),
+                axis.text = element_text(color = "black", size = 10),
+                text = element_text(size = 8, color = "black", family="serif"),
+                panel.grid = element_blank(),
+                legend.position = c(.15, .1),
+                legend.key.height = unit(0.6,"cm"),
+                legend.text = element_text(face = "bold", color = "black", size = 8),
+                strip.text = element_text(face = "bold", size = 14))
+  return(pl)
+}
+
+BoxplotFun <- function(datset=ExprSet,
+                       taxalist=c("Parvimonas_micra", "Clostridium_symbiosum"),
+                       group_name=subgrp[c(3,1)],
+                       group_col=grp.col[c(3,1)]){
+
+  # datset=ExprSet
+  # taxalist=c("Parvimonas_micra", "Clostridium_symbiosum")
+  # group_name=subgrp[c(3,1)]
+  # group_col=grp.col[c(3,1)]
+
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- pData(datset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=ifelse(SubGroup == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- pData(datset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(SubGroup%in%group_name) %>%
+      mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  print(table(pheno$SubGroup))
+
+  edata <- data.frame(exprs(datset)) %>%
+            dplyr::select(rownames(pheno)) %>%
+            rownames_to_column("FeatureID") %>%
+            filter(FeatureID%in%taxalist) %>%
+            column_to_rownames("FeatureID")
+
+  mdat <- pheno %>% dplyr::select(SubGroup) %>%
+    rownames_to_column("SampleID") %>%
+    inner_join(t(edata) %>% data.frame() %>% rownames_to_column("SampleID"), by = "SampleID") %>%
+    column_to_rownames("SampleID")
+
+  plotdata <- mdat %>% tidyr::gather(key="FeatureID", value="value", -SubGroup) %>%
+    mutate(SubGroup=factor(SubGroup, levels = group_name))
+
+  pl <- ggplot(plotdata, aes(x=FeatureID, y=log10(value), color=SubGroup))+
+          stat_boxplot(geom="errorbar", width=0.15,
+                       position=position_dodge(0.8))+
+          geom_boxplot(width=0.4,
+                       outlier.size=0, 
+                       alpha=0.8,
+                       position=position_dodge(width=0.8))+
+          geom_point(aes(fill=SubGroup), size=1, shape=21, position=position_jitterdodge())+
+          scale_color_manual(name="Group",
+                             values=group_col)+
+          labs(x="", y="Relative Abundance(log10)")+
+          guides(fill="none")+
+          theme_bw()+
+          theme(axis.title = element_text(color="black", size=12),
+                axis.text.x = element_text(color="black", size=10, hjust=.5, vjust=.5, angle=60),
+                text = element_text(size=8, color="black", family="serif"),
+                panel.grid = element_blank(),
+                strip.text = element_text(face="bold", size=12))
+
+  return(pl)
+}
+
+
+VennFun <- function(datset1=CRC_HC_DEA,
+                    datset2=AA_HC_DEA){
+  
+  # datset1=CRC_HC_DEA
+  # datset2=AA_HC_DEA
+  
+  diff_gene1 <- datset1 %>% filter(Enrichment != "Nonsignif")
+  diff_gene2 <- datset2 %>% filter(Enrichment != "Nonsignif")
+  dat_res <- list(diff1=diff_gene1$GeneID,
+                  diff2=diff_gene2$GeneID)
+  
+  # eulerr
+  require(eulerr)
+  # pdf(file = "Venn.pdf", width = 5, height = 4)
+  plot(euler(dat_res, shape = "ellipse"), 
+       fills = alpha(grp.col[2:3], 0.5),
+       labels = c("CRC vs HC", "AA vs HC"),
+       quantities = TRUE,
+       col = "black")
+  # dev.off()
+  
+  #return(dat_res)
+}
+
+VennFun2 <- function(datset1=CRC_HC_DEA,
+                     group_name1=subgrp[c(3,1)],
+                     datset2=AA_HC_DEA,
+                     group_name2=subgrp[c(2,1)]){
+  
+  # datset1=CRC_HC_DEA
+  # group_name1=subgrp[c(3,1)]
+  # datset2=AA_HC_DEA
+  # group_name2=subgrp[c(2,1)]
+  
+  dat1 <- datset1 %>% filter(Enrichment != "Nonsignif") %>%
+    mutate(Color=factor(Enrichment, levels = group_name1))
+  dat2 <- datset2 %>% filter(Enrichment != "Nonsignif") %>%
+    mutate(Color=factor(Enrichment, levels = group_name2))
+  
+  # distribution of gene
+  dat_overlap <- intersect(dat1$GeneID, dat2$GeneID) 
+  dat1_overlap <- dat1 %>% filter(GeneID%in%dat_overlap)
+  dat2_overlap <- dat2 %>% filter(GeneID%in%dat_overlap)  
+  dat1_unique <- dat1 %>% filter(!GeneID%in%dat_overlap)
+  dat2_unique <- dat2 %>% filter(!GeneID%in%dat_overlap)
+  
+  # number
+  dat1_status <- table(dat1_unique$Color)
+  dat1_status_number <- as.numeric(dat1_status)
+  dat1_status_name <- names(dat1_status)
+  dat1_legend_label <- paste0(paste0(dat1_status_name[1], "(", dat1_status_number[1], ")"), " ",
+                         paste0(dat1_status_name[2], "(", dat1_status_number[2], ")"))
+  
+  dat2_status <- table(dat2_unique$Color)
+  dat2_status_number <- as.numeric(dat2_status)
+  dat2_status_name <- names(dat2_status)
+  dat2_legend_label <- paste0(paste0(dat2_status_name[1], "(", dat2_status_number[1], ")"), " ",
+                         paste0(dat2_status_name[2], "(", dat2_status_number[2], ")"))
+  
+  
+  
+  
+  plotdata <- list(d1=dat1$GeneID, d2=dat2$GeneID)
+  pl <- ggVennDiagram::ggVennDiagram(plotdata, color = 1, lwd = 0.7, label_alpha = 1)+
+    scale_fill_gradient(low="#F4FAFE", high="#4981BF")+
+    annotate("text", x=-1.8, y=.8, label=dat1_legend_label, size=6, color="black")+
+    annotate("text", x=6, y=.8, label=dat2_legend_label, size=6, color="black")
+  
+  # require(ggvenn)
+  # plotdata <- data.frame(FeatureID=c(dat1$GeneID, dat2$GeneID),
+  #                        A=c(rep(TRUE, nrow(dat1)), rep(FALSE, nrow(dat2))),
+  #                        B=c(rep(FALSE, nrow(dat1)), rep(TRUE, nrow(dat2))))
+  # 
+  #  ggplot(plotdata, aes(A=A, B=B))+
+  #    geom_venn(fill_color=c("#BE0100", "#32869E"))+
+  #    annotate("text", x=-.8, y=.5, label=dat1_legend_label, size=6, color="black")+
+  #    theme_void()
+  
+  return(pl)
+  
+}
+
+
+QuadrantFun <- function(datset1=CRC_HC_DEA,
+                        group_name1=subgrp[c(3,1)],
+                        datset2=AA_HC_DEA,
+                        group_name2=subgrp[c(2,1)],
+                        thresholdFC=0.5,
+                        axis_len=4){
+  
+  # datset1=CRC_HC_DEA
+  # group_name1=subgrp[c(3,1)]
+  # datset2=AA_HC_DEA
+  # group_name2=subgrp[c(2,1)]
+  # thresholdFC=0.5
+  # axis_len=4
+  
+  overlap_gene <- union(datset1$GeneID, datset2$GeneID)
+  dat_x <- datset1 %>% filter(GeneID%in%overlap_gene)
+  dat_y <- datset2 %>% filter(GeneID%in%overlap_gene)
+  
+  # the Differential Genes 
+  dat_x_signif <- subset(dat_x, Enrichment != "Nonsignif")
+  dat_y_signif <- subset(dat_y, Enrichment != "Nonsignif")
+  
+  # enriched in NC and Disease in both  
+  common_signif <- intersect(dat_x_signif$GeneID, dat_y_signif$GeneID)
+  
+  # enriched in NC and Disease in each
+  dat_x_sig_only <- setdiff(dat_x_signif$GeneID, common_signif)
+  dat_y_sig_only <- setdiff(dat_y_signif$GeneID, common_signif)
+  non_signif <- setdiff(overlap_gene, c(common_signif, dat_x_sig_only, dat_y_sig_only))
+  
+  gene_type_name <- c(paste(group_name1[1], group_name2[1], collapse = "/"),
+                      paste(group_name1[1], "only"),
+                      paste(group_name2[1], "only"),
+                      "Nonsignif")
+  
+  gene_type_df <- rbind(data.frame(GeneID=common_signif, group=gene_type_name[1]),
+                        data.frame(GeneID=dat_x_sig_only, group=gene_type_name[2]),
+                        data.frame(GeneID=dat_y_sig_only, group=gene_type_name[3]),
+                        data.frame(GeneID=non_signif, group=gene_type_name[4]))
+  mdat <- inner_join(dat_x %>% dplyr::select(GeneID, logFC) %>% dplyr::rename(xvalue=logFC),
+                     dat_y %>% dplyr::select(GeneID, logFC) %>% dplyr::rename(yvalue=logFC),
+                     by = "GeneID") %>%
+    inner_join(gene_type_df, by="GeneID") %>%
+    mutate(group=factor(group, levels = rev(gene_type_name)))
+  
+  print(table(mdat$group))
+  
+  common_signif_gene <- mdat %>% filter(GeneID%in%common_signif)
+  
+  common_signif_gene <- mdat %>% filter(GeneID%in%common_signif) %>%
+    mutate(GeneID_v2=ifelse(abs(xvalue) > thresholdFC | abs(yvalue) > thresholdFC, GeneID, NA))
+  
+  common_signif_gene_v2 <- na.omit(common_signif_gene)
+  print(table(common_signif_gene_v2$group))
+
+  require(magrittr)
+  # constants
+  axis_begin  <- -axis_len
+  axis_end    <- axis_len
+  total_ticks <- 8
+  
+  # point to plot
+  my_point <- data.frame(x=1, y=1)
+  # chart junk data
+  tick_frame <- data.frame(ticks = seq(axis_begin, axis_end, by=2), zero=0) %>%
+    subset(ticks != 0)
+  tick_frame <- data.frame(ticks = seq(axis_begin, axis_end, by=2), zero=0) %>%
+    subset(ticks != 0)
+  lab_frame <- data.frame(lab = seq(axis_begin, axis_end, 2), zero = 0) %>%
+    subset(lab != 0)
+  tick_sz <- (tail(lab_frame$lab, 1) -  lab_frame$lab[1]) / 128
+  
+  x_title <- paste(group_name1, collapse = "vs")
+  y_title <- paste(group_name2, collapse = "vs")
+  
+  pl <- ggplot(mdat)+
+          geom_segment(x = 0, xend = 0, 
+                       y = lab_frame$lab[1], yend = tail(lab_frame$lab, 1),
+                       size = 0.5) +
+          geom_segment(y = 0, yend = 0, 
+                       x = lab_frame$lab[1], xend = tail(lab_frame$lab, 1),
+                       size = 0.5) +
+          geom_segment(data = tick_frame, 
+                       aes(x = ticks, xend = ticks, 
+                           y = zero, yend = zero + tick_sz)) +
+          geom_segment(data = tick_frame, 
+                       aes(x = zero, xend = zero + tick_sz, 
+                           y = ticks, yend = ticks)) + 
+          geom_text(data=lab_frame, aes(x=lab, y=zero, label=lab),
+                    family = 'Times', vjust=1.5) +
+          geom_text(data=lab_frame, aes(x=zero, y=lab, label=lab),
+                    family = 'Times', hjust=1.5) +
+          annotate("text", x = axis_len-1, y = -.7, color = "black", size=3, 
+                   label = paste0("log2(", x_title, ")"))+
+          annotate("text", x = -.7, y = axis_len-1, color = "black", size=3, angle=90, 
+                   label = paste0("log2(", y_title, ")"))+
+          geom_point(aes(x = xvalue, y = yvalue, color=group), size = 1.5)+
+          geom_text_repel(data = common_signif_gene,  
+                          aes(x=xvalue, y=yvalue, label = GeneID_v2),
+                          size = 5,
+                          max.overlaps = getOption("ggrepel.max.overlaps", default = 80),
+                          segment.linetype = 1,
+                          segment.curvature = -1e-20,
+                          box.padding = unit(0.35, "lines"),
+                          point.padding = unit(0.3, "lines"),
+                          arrow = arrow(length = unit(0.005, "npc")),
+                          # color = "white",     # text color
+                          # bg.color = "grey30", # shadow color
+                          bg.r = 0.15)+
+          scale_color_manual(values = c("#A6A6A6", "#7BBDE0", "#B67FD0", "#FDC361"))+
+          guides(color=guide_legend(title = NULL, keywidth=.9, keyheight=.9, linetype=2))+
+          theme_void()+
+          theme(panel.grid = element_blank(),
+                text = element_text(size = 8, color = "black", family="serif"),      
+                legend.text=element_text(size=11, color = "black"),
+                legend.position = c(.7, .2),
+                legend.justification = c(0, 0),
+                legend.background = element_rect(linetype=2, color = "black", fill="white"))
+  
+  return(pl)
+}
+
+heatFun <- function(datset1=CRC_HC_DEA, 
+                    datset2=AA_HC_DEA,
+                    thresholdFC=0.5,
+                    ExprSet=ExprSet,
+                    group_name=subgrp){
+  
+  # datset1=CRC_HC_DEA
+  # datset2=AA_HC_DEA
+  # thresholdFC=0.5
+  # ExprSet=ExprSet
+  # group_name=subgrp
+  
+  diff_gene1 <- datset1 %>% filter(Enrichment != "Nonsignif") %>%
+    filter(abs(logFC) > thresholdFC)
+  diff_gene2 <- datset2 %>% filter(Enrichment != "Nonsignif") %>%
+    filter(abs(logFC) > thresholdFC)
+  
+  union_gene <- Reduce(union, list(diff_gene1$GeneID, diff_gene2$GeneID))
+  
+  pheno <- pData(ExprSet) %>% data.frame() %>%
+    rownames_to_column("SampleID") %>%
+    filter(SubGroup%in%group_name) %>%
+    mutate(SubGroup=factor(SubGroup, levels = group_name)) %>%
+    arrange(SubGroup) %>%
+    column_to_rownames("SampleID")
+  
+  edata <- exprs(ExprSet) %>% data.frame() %>%
+    rownames_to_column("geneid") %>%
+    filter(geneid%in%union_gene) %>%
+    dplyr::select(c("geneid", rownames(pheno))) %>%
+    column_to_rownames("geneid")
+  
+  # scale data: z-score
+  scale_rows <- function (x) {
+      m = apply(x, 1, mean, na.rm = T)
+      s = apply(x, 1, sd, na.rm = T)
+      return((x - m)/s)
+  }  
+  edata_scaled <- t(scale_rows(edata))
+  require(circlize)
+  col_fun <- colorRamp2(c(round(range(edata_scaled)[1]), 0, 
+                          round(range(edata_scaled)[2])),
+                        c("blue", "white", "red")) 
+  # row split 
+  dat_status <- table(pheno$SubGroup)
+  dat_status_number <- as.numeric(dat_status)
+  dat_status_name <- names(dat_status)
+  row_split <- c()
+  for (i in 1:length(dat_status_number)) {
+    row_split <- c(row_split, rep(i, dat_status_number[i]))
+  }
+  require(ComplexHeatmap)
+  pl <- Heatmap(
+          edata_scaled, 
+          #col = col_fun,
+          cluster_rows = FALSE,
+          row_order = rownames(pheno),
+          show_column_names = FALSE,
+          show_row_names = FALSE,
+          row_names_gp = gpar(fontsize = 12),
+          row_names_side = "right",
+          row_dend_side = "left",
+          column_title = NULL, 
+          heatmap_legend_param = list(
+            title = "Relative Abundance\nZscore",
+            title_position = "topcenter",
+            border = "black",
+            legend_height = unit(10, "cm"),
+            direction = "horizontal"),
+         row_split = row_split,
+        left_annotation = rowAnnotation(foo = anno_block(gp = gpar(fill = 2:4),
+            labels = group_name, 
+            labels_gp = gpar(col = "black", fontsize = 12))),         
+         column_km = 3
+    )
+  return(pl)
+}
+```
+
+
+### Volcano 
+```{r, fig.width=8, fig.height=6}
+VolcanoFun(datset=CRC_HC_DEA,
+           taxalist=c("Parvimonas_micra"),
+           group_name=subgrp[c(3,1)],
+           group_col=grp.col[c(3,1)],
+           Pval=0.05,
+           LogFC=0.5)
+
+VolcanoFun(datset=AA_HC_DEA,
+           taxalist=c("Eubacterium_eligens"),
+           group_name=subgrp[c(2,1)],
+           group_col=grp.col[c(2,1)],
+           Pval=0.05,
+           LogFC=0.5)
+```
+
+
+```{r}
+BoxplotFun(datset=ExprSet,
+           taxalist=c("Parvimonas_micra", "Clostridium_symbiosum"),
+           group_name=subgrp[c(3,1)],
+           group_col=grp.col[c(3,1)])
+
+BoxplotFun(datset=ExprSet,
+           taxalist=c("Eubacterium_eligens", "Bacteroides_vulgatus"),
+           group_name=subgrp[c(2,1)],
+           group_col=grp.col[c(2,1)])
+```
+
+
+### Venn
+```{r}
+VennFun(datset1=CRC_HC_DEA,
+        datset2=AA_HC_DEA)
+
+VennFun2(datset1=CRC_HC_DEA,
+         group_name1=subgrp[c(3,1)],
+         datset2=AA_HC_DEA,
+         group_name2=subgrp[c(2,1)])
+```
+
+
+###Quadrant 
+```{r}
+QuadrantFun(datset1=CRC_HC_DEA,
+            group_name1=subgrp[c(3,1)],
+            datset2=AA_HC_DEA,
+            group_name2=subgrp[c(2,1)],
+            thresholdFC=0.5,
+            axis_len=5)
+```
+
+
+### Heatmap
+```{r}
+heatFun(datset1=CRC_HC_DEA, 
+        datset2=AA_HC_DEA,
+        thresholdFC=0.5,
+        ExprSet=ExprSet,
+        group_name=subgrp)
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+

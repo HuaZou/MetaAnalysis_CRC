@@ -428,7 +428,7 @@ CRC_HC_DEA <- DEA_test(
                  dataset=ExprSet,
                  group_name=subgrp[c(3, 1)],
                  Pval=0.05,
-                 logFC=0)
+                 logFC=0.5)
 write.csv(CRC_HC_DEA, "../../Result/Differential/CRC_HC_DEA.csv", row.names = F)
 
 
@@ -448,6 +448,36 @@ CRC_HC_DEA_wilcox <- DEA_wilcox_test(
                        group_name=subgrp[c(3, 1)],
                        Pval=0.05)
 write.csv(CRC_HC_DEA_wilcox, "../../Result/Differential/CRC_HC_DEA_wilcox.csv", row.names = F)
+```
+
+
+### AA vs HC 
+```{r}
+# T-test/Wilcox-test
+AA_HC_DEA <- DEA_test(
+                 dataset=ExprSet,
+                 group_name=subgrp[c(2, 1)],
+                 Pval=0.05,
+                 logFC=0.5)
+write.csv(AA_HC_DEA, "../../Result/Differential/AA_HC_DEA.csv", row.names = F)
+
+
+# limma
+AA_HC_DEA_limma <- get_DEA_limma(
+                      dataset=ExprSet,
+                      group_name=subgrp[c(2, 1)],
+                      scale=FALSE,
+                      Pval=0.05,
+                      fc=0.5)
+write.csv(AA_HC_DEA_limma, "../../Result/Differential/AA_HC_DEA_limma.csv", row.names = F)
+
+
+# wilcox
+AA_HC_DEA_wilcox <- DEA_wilcox_test(
+                       dataset=ExprSet,
+                       group_name=subgrp[c(2, 1)],
+                       Pval=0.05)
+write.csv(AA_HC_DEA_wilcox, "../../Result/Differential/AA_HC_DEA_wilcox.csv", row.names = F)
 ```
 
 
