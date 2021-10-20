@@ -3,4 +3,5 @@
 *.Origin.RDS
 *.SparCC.RDS
 *.profile.*
+.ipynb_checkpoints/
 
