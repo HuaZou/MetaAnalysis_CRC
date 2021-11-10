@@ -1,0 +1,429 @@
+---
+title: "LASSO Logistic regression model to calculate Proportion Score"
+date: "Created: 2021-11-10 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introdution
+
+Building LASSO regression model based on the Differential Expression Proteins and Calculating the Proportion Score. The procedures:
+
+1. Randomly split discovery cohort into trainset and testset with 0.7 probability
+
+2. The logistic LASSO regression model was fitted to the trainset
+
+3. The fitted model was employed on testset 
+
+This process was repeated 100 times, thus generating 100 different logistic LASSO regression models.
+
+========================================================================
+
+DataStatus: 
+
+  * Healthy Control: HC
+  
+  * Adenoma: AA	
+  
+  * Colorectal Cancer: CRC
+
+* Discovery Cohort: 1112
+
+  * 626 non-CRC samples (481 HC + 145 AA)
+  
+  * 486 CRC samples
+
+========================================================================
+
+General Evaluation of model performance
+
+* AUC
+
+* Accuracy
+
+* Sensitivity
+
+* Specificity 
+
+* Positive Predictive Value (Precision)
+
+========================================================================
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(convert)
+library(data.table)
+library(glmnet)
+library(ggplot2)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Biomarker/Logistic_model/species_profile_Discovery.RDS")
+
+CRC_HC_DEA <- fread("../../Result/Biomarker/Logistic_model/CRC_HC_DEA_final.csv")
+CRC_nonCRC_DEA <- fread("../../Result/Biomarker/Logistic_model/CRC_nonCRC_DEA_final.csv")
+```
+
+
+### logistic LASSO regression model & Proportion score
+```{r}
+build_LASSO <- function(dataset=ExprSet,
+                        testres=CRC_nonCRC_DEA,
+                        group_name=subgrp[1:3],
+                        Pname="adj.P.Val",
+                        Pval=0.05,
+                        LogFC=0,
+                        splitPro=0.7,
+                        kfold=10,
+                        times=100){
+    
+  # dataset=ExprSet
+  # testres=CRC_nonCRC_DEA
+  # group_name=subgrp[1:3]
+  # Pname="adj.P.Val"
+  # Pval=0.05
+  # LogFC=0
+  # splitPro=0.7
+  # kfold=10
+  # times=10
+  
+  
+  # Differential features
+  colnames(testres)[which(colnames(testres) == Pname)] <- "PValue"
+  if(Pval == 0){
+    dat_DEP <- testres %>% dplyr::select(FeatureID, PValue)
+  }else{
+    if(LogFC > 0){
+      dat_DEP <- testres %>% dplyr::select(FeatureID, PValue, logFC) %>%
+        filter(PValue < Pval) %>%
+        filter(abs(logFC) > LogFC)    
+    }else{
+      dat_DEP <- testres %>% dplyr::select(FeatureID, PValue) %>%
+        filter(PValue < Pval)    
+    }  
+  }
+  print(dim(dat_DEP)[1])
+  
+  # dataset of DEP
+  if(length(group_name) == 3){
+    group_name2 <- c("non_CRC", "CRC")
+    pheno <- pData(dataset) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[2], group_name2[2], group_name2[1])) %>%
+      mutate(Group=factor(Group, levels = group_name2)) 
+    group_name <- group_name2
+  }else{
+    pheno <- pData(dataset) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name))    
+  }
+  edata <- exprs(dataset)[dat_DEP$FeatureID, rownames(pheno)] %>% data.frame()
+  
+  mdat_temp <- inner_join(pheno %>% rownames_to_column("SampleID") %>%
+                       dplyr::select(SampleID, Group),
+                     edata %>% t() %>% data.frame() %>%
+                       rownames_to_column("SampleID"),
+                     by = "SampleID") %>%
+    column_to_rownames("SampleID") 
+  
+  # Before building model, performing Zscore standardization
+  mdat <- cbind(mdat_temp$Group, scale(mdat_temp %>% dplyr::select(-Group)) %>% data.frame())
+  colnames(mdat)[1] <- "Group"  
+  
+  # scale 
+  LASSO_model <- list()
+  auc_score <- c()
+  # repeat building model
+  for(i in 1:times){
+    # Data Partition
+    #set.seed(123)
+    require(sampling)
+    sample <- sampling::strata(mdat, 
+                     stratanames = "Group",
+                     size = round(as.numeric(table(mdat$Group)) * splitPro),
+                     method = "srswor")
+    trainData <- mdat[sample$ID_unit, ]
+    testData <- mdat[-sample$ID_unit, ]
+    
+    dat_table <- as.matrix(trainData %>% dplyr::select(-Group))
+    dat_target <- trainData$Group
+    print("The Group's number of TrainData")
+    print(table(trainData$Group))    
+    
+    # preview data distribution
+    #plot(density(dat_table))
+    
+    # determine folds
+    if(dim(trainData)[1] > 10 * 8){
+      kfold <- 10
+    }else{
+      kfold <- kfold
+    }     
+    
+    # feature selection
+    #set.seed(123)  
+    cvfit <- cv.glmnet(
+                     x=dat_table,
+                     y=dat_target,
+                     family="binomial",
+                     nfolds = kfold,
+                     alpha = 1,
+                     nlambda = 100,
+                     type.measure = "auc")
+    #plot(cvfit)
+    predicted <- predict(cvfit, as.matrix(testData[, -1]), type = "response", s = cvfit$lambda.min)
+    
+    predict_class <- predict(cvfit, as.matrix(testData[, -1]), type = "class")
+    print(caret::confusionMatrix(factor(predict_class), factor(testData$Group)))
+    
+    # AUC
+    require(ggplot2)
+    require(pROC)
+    rocobj <- roc(testData$Group, predictor=predicted[, 1])
+    
+    # AUC 95% CI 
+    auc_95CI <- ci.auc(rocobj, conf.level = 0.95)
+    auc_95CI_value <- round(as.numeric(auc_95CI), 3)
+    auc_95CI_label <- paste0("AUC = ", auc_95CI_value[2], " (", 
+                              auc_95CI_value[1], ", ", 
+                              auc_95CI_value[3], ")")
+  
+    auc <- round(auc(testData$Group, predictor=predicted[, 1]), 4)
+    pl <- ggroc(rocobj, color="red", linetype=1, size=1, alpha=1, legacy.axes=T)+
+                  geom_abline(intercept=0, slope=1, color="grey", size=1, linetype=1)+
+                labs(x="False Positive Rate (1 - Specificity)",
+                     y="True Positive Rate (Sensivity or Recall)")+
+                # annotate("text", x=.75, y=.25, label=paste("AUC =", auc),
+                #          size=5, family="serif")+
+                annotate("text", x=.75, y=.25, label=auc_95CI_label,
+                         size=5, family="serif")+      
+                coord_cartesian(xlim=c(0, 1), ylim=c(0, 1))+
+                theme_bw()+
+                theme(panel.background = element_rect(fill="transparent"),
+                      axis.ticks.length = unit(0.4, "lines"), 
+                      axis.ticks = element_line(color="black"),
+                      axis.line = element_line(size=.5, color="black"),
+                      axis.title = element_text(color="black", size=12, face="bold"),
+                      axis.text = element_text(color="black", size=10),
+                      text = element_text(size=8, color="black", family="serif"))  
+  
+    # predictors
+    predictors <- data.frame(as.matrix(coef(cvfit, cvfit$lambda.min))) %>%
+        setNames("Score") %>%
+        rownames_to_column("Protein") %>%
+        slice(-1) %>%
+        filter(Score!=0) 
+    
+    auc_score <- c(auc_score, auc) 
+    # model results
+    LASSO_model[[i]] <- list(fit=cvfit, 
+                             auc=auc,
+                             auc_CI=auc_95CI_label,
+                             pl=pl,
+                             marker=predictors)    
+  } 
+  
+  print(summary(auc_score))
+  
+  return(LASSO_model)
+}
+
+# AUC 95% confidence Interval
+AUC_95CI_plot <- function(dataset=PDAC_nonPDAC_LASSO){
+  
+  # dataset=PDAC_nonPDAC_LASSO
+  
+  # auc_score
+  auc_score <- c()
+  for (j in 1:length(dataset)) {
+    
+    temp <- dataset[[j]]$auc
+    auc_score <- c(auc_score, temp)
+  }
+  
+  # 95% CI 
+  CI95_Normal <- function(x){
+    # Calculating a Confidence Interval From a Normal Distribution
+    x_length <- length(x)
+    x_mean <- signif(mean(x), 3)
+    x_sd <- sd(x)
+    error <- qnorm(0.975) * x_sd/sqrt(x_length)
+    left <- signif(x_mean - error, 3)
+    right <- signif(x_mean + error, 3)
+    res <- paste0("AUC = ", x_mean, " (", left, ", ", right, ")")
+    return(res)
+  }
+  
+  CI95_t <- function(x){
+    # Calculating a Confidence Interval From a t Distribution
+    x_length <- length(x)
+    x_mean <- signif(mean(x), 3)
+    x_sd <- sd(x)
+    error <- qt(0.975, df=x_length-1) * x_sd/sqrt(x_length)
+    left <- signif(x_mean - error, 3)
+    right <- signif(x_mean + error, 3)
+    res <- paste0("AUC = ", x_mean, " (", left, ", ", right, ")")
+    return(res)
+  }
+  
+  auc_95CI_Normal <- CI95_Normal(auc_score)
+  
+  # plot 
+  dat_range <- round(as.numeric(summary(auc_score)), 3)
+  dat_name <- names(summary(auc_score))
+  pl <- ggplot(data.frame(x=auc_score), aes(x=x)) + 
+          geom_density()+
+          labs(x="AUC", y="density")+
+          annotate(geom="text", x=(dat_range[1]+dat_range[2])/2, y=5, label=auc_95CI_Normal, size=6)+
+          geom_vline(xintercept=dat_range[2], linetype=2)+
+          geom_vline(xintercept=dat_range[5], linetype=2)+
+          scale_x_continuous(breaks=dat_range,
+                             labels=paste(dat_name, dat_range, sep = "\n"))+
+          theme_bw()+
+          theme(panel.background = element_rect(fill="transparent"),
+                axis.ticks.length = unit(0.4, "lines"), 
+                axis.ticks = element_line(color="black"),
+                axis.line = element_line(size=.5, color="black"),
+                axis.title = element_text(color="black", size=12, face="bold"),
+                axis.text.x = element_text(angle = 90, hjust=1, face="bold"),
+                axis.text = element_text(color="black", size=10),
+                text = element_text(size=8, color="black", family="serif")) 
+  
+  return(pl)
+}
+
+# Protein signature
+ProportionScore <- function(datfit=PDAC_nonPDAC_LASSO){
+  
+  # datfit=PDAC_nonPDAC_LASSO
+  
+  df_marker <- data.frame()
+  for (i in 1:length(datfit)){
+    temp <- datfit[[i]]$marker
+    df_marker <- rbind(df_marker, temp)
+  }
+  
+  # proportion score
+  df_marker_proportion <- df_marker %>% 
+    group_by(Protein) %>%
+    summarise(Count=length(Protein)) %>%
+    mutate(Proportion=Count/length(datfit))
+  
+  # protein signatures
+  range_score_list <- list()
+  range_score <- seq(0, 1, 0.05)
+  for(i in 1:(length(range_score)-1)){
+    range_score_list[[i]] <- c(range_score[i], range_score[i+1])
+  }
+  range_score_list[[length(range_score)]] <- range_score[1]
+  range_score_list[[length(range_score)+1]] <- range_score[length(range_score)]
+  
+  df_marker_proportion$Signature <- NA
+  for(j in 1:nrow(df_marker_proportion)){
+    for(m in 1:length(range_score_list)){
+      if(length(range_score_list[[m]]) > 1){
+        df_marker_proportion$Signature[j] <- ifelse(
+          df_marker_proportion$Proportion[j] > range_score_list[[m]][1] &
+                df_marker_proportion$Proportion[j] <= range_score_list[[m]][2],
+                      paste0("Signature", m), df_marker_proportion$Signature[j])
+      }else{
+        df_marker_proportion$Signature[j] <- ifelse(
+          df_marker_proportion$Proportion[j] == range_score_list[[m]][1],
+                paste0("Signature", m), df_marker_proportion$Signature[j])
+      }
+    }
+  }
+  
+  return(df_marker_proportion)
+}
+
+
+if(!dir.exists("../../Result/Biomarker/Logistic_model")){
+  dir.create("../../Result/Biomarker/Logistic_model", recursive = T)
+}
+```
+
+
+### CRC vs HC
+```{r}
+CRC_HC_LASSO <- build_LASSO(dataset=ExprSet,
+                            testres=CRC_HC_DEA,
+                            group_name=subgrp[c(1,3)],
+                            Pname="adj.P.Val",
+                            Pval=0.05,
+                            LogFC=0, 
+                            splitPro=0.5,
+                            kfold=10,
+                            times=100)
+
+CRC_HC_LASSO_plot <- AUC_95CI_plot(dataset=CRC_HC_LASSO)
+CRC_HC_LASSO_plot
+
+CRC_HC_DEA_signature <- ProportionScore(datfit=CRC_HC_LASSO)
+DT::datatable(CRC_HC_DEA_signature)
+
+
+CRC_HC_filename_RDS <- paste0("../../Result/Biomarker/Logistic_model/CRC_HC_DEA_LASSO-", Sys.Date(), ".RDS")
+saveRDS(CRC_HC_LASSO, file = CRC_HC_filename_RDS, compress = TRUE)
+
+CRC_HC_filename_pscore <- paste0("../../Result/Biomarker/Logistic_model/CRC_HC_DEA_signature-", Sys.Date(), ".csv")
+write.csv(CRC_HC_DEA_signature, file = CRC_HC_filename_pscore, row.names = F)
+```
+
+
+### CRC vs non_CRC
+```{r}
+CRC_nonCRC_LASSO <- build_LASSO(
+                              dataset=ExprSet,
+                              testres=CRC_nonCRC_DEA,
+                              group_name=subgrp[1:3],
+                              Pname="adj.P.Val",
+                              Pval=0.05,
+                              LogFC=0, 
+                              splitPro=0.7,
+                              kfold=10,
+                              times=100)
+
+CRC_nonCRC_LASSO_plot <- AUC_95CI_plot(dataset=CRC_nonCRC_LASSO)
+CRC_nonCRC_LASSO_plot
+
+CRC_nonCRC_DEA_signature <- ProportionScore(datfit=CRC_nonCRC_LASSO)
+DT::datatable(CRC_nonCRC_DEA_signature)
+
+
+CRC_nonCRC_filename_RDS <- paste0("../../Result/Biomarker/Logistic_model/CRC_nonCRC_DEA_LASSO-", Sys.Date(), ".RDS")
+saveRDS(CRC_nonCRC_LASSO, file = CRC_nonCRC_filename_RDS, compress = TRUE)
+
+CRC_nonCRC_filename_pscore <- paste0("../../Result/Biomarker/Logistic_model/CRC_nonCRC_DEA_signature-", Sys.Date(), ".csv")
+write.csv(CRC_nonCRC_DEA_signature, file = CRC_nonCRC_filename_pscore, row.names = F)
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference
+
+1. [An Introduction to glmnet](https://glmnet.stanford.edu/articles/glmnet.html)
+
+2. [how to calculate AUC confidence interval](https://www.r-bloggers.com/2019/08/how-to-get-an-auc-confidence-interval/)
+

@@ -1,0 +1,260 @@
+---
+title: "Visualization of Differential Expression Species"
+date: "Created: 2021-11-10 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introdution
+
+DataStatus: 
+
+  * Healthy Control: HC
+  
+  * Adenoma: AA	
+  
+  * Colorectal Cancer: CRC
+  
+
+
+* Discovery Cohort: 1112
+
+  * 626 non-CRC samples (481 HC + 145 AA)
+  
+  * 486 CRC samples
+
+* Validation Cohort: 475 
+
+  * 268 non-CRC samples(206 HC + 62 AA)
+  
+  * 207 CRC samples
+  
+  
+
+Three comparisons between the pancreatic tumor (PDAC) patients and other groups:
+
+  1. CRC 486 vs HC 481
+  
+  2. CRC 486 vs AA 145
+  
+  3. AA 145 vs HC 481
+  
+  4. CRC 486 vs non-CRC( 481 HC; 145 AA) 626
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(convert)
+library(data.table)
+library(ggplot2)
+library(ggrepel)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Biomarker/Logistic_model/species_profile_Discovery.RDS")
+CRC_nonCRC_DEA <- fread("../../Result/Biomarker/Logistic_model/CRC_nonCRC_DEA_final.csv")
+```
+
+
+### Function
+```{r}
+VolcanoFun <- function(datset=CRC_nonCRC_DEA,
+                       genelist=c("Asaccharobacter_celatus", "Odoribacter_splanchnicus"),
+                       group_name=subgrp[c(3,2,1)],
+                       group_col=grp.col[c(3,1)],
+                       Pval=0.05,
+                       LogFC=0.5){
+
+  # datset=CRC_nonCRC_DEA
+  # genelist=c("Asaccharobacter_celatus", "Odoribacter_splanchnicus")
+  # group_name=subgrp[c(3,2,1)]
+  # group_col=grp.col[c(3,1)]
+  # Pval=0.05
+  # LogFC=0.5
+  
+  if(length(group_name) == 3){
+      group_name2 <- c("CRC", "non_CRC")
+      group_name <- group_name2
+    }  
+
+  dat <- datset %>%
+    mutate(color=factor(Enrichment,
+                        levels = c(group_name, "Nonsignif"))) %>%
+    mutate(color_col=ifelse(color == group_name[1], group_col[1],
+                            ifelse(color == group_name[2], group_col[2], "grey80")))
+  # print(table(dat$color))
+  dat_status <- table(dat$color)
+  dat_status_number <- as.numeric(dat_status)
+  dat_status_name <- names(dat_status)
+  legend_label <- c(paste0(dat_status_name[1], " (", dat_status_number[1], ")"),
+                    paste0(dat_status_name[2], " (", dat_status_number[2], ")"),
+                    paste0("Nonsignif", " (", dat_status_number[3], ")"))
+
+  dat.signif <- subset(dat, adj.P.Val < Pval & abs(logFC) > LogFC) %>%
+    filter(FeatureID%in%genelist)
+  print(table(dat.signif$color))
+
+  group_col_new <- c(rev(group_col), "grey80")
+  group_name_new <- levels(dat$color)
+
+  xlabel <- paste0("log2(", paste(group_name, collapse="/"), ")")
+
+  # Make a basic ggplot2 object with x-y values
+  pl <- ggplot(dat, aes(x=logFC, y=-log10(adj.P.Val), color=color))+
+          geom_point(size=2, alpha=1, stroke=1)+
+          # geom_point(aes(fill=color), size=2, shape=21, stroke=.5, color="grey")+
+          # scale_fill_manual(name = NULL,
+          #                    values = group_col_new,
+          #                    labels = c(legend_label, "Nonsignif"))+
+          scale_color_manual(name=NULL,
+                             values=group_col_new,
+                             labels=c(legend_label, "Nonsignif"))+    
+          xlab(xlabel) +
+          ylab(expression(-log[10]("adjusted p-value")))+
+          geom_hline(yintercept=-log10(Pval), alpha=.8, linetype=2, size=.7)+
+          geom_vline(xintercept=LogFC, alpha=.8, linetype=2, size=.7)+
+          geom_vline(xintercept=-LogFC, alpha=.8, linetype=2, size=.7)+
+          # geom_text_repel(data = dat.signif,
+          #                 aes(fill = color_col, label = FeatureID, segment.color = color_col),
+          #                 size = 4,
+          #                 point.padding = 0,
+          #                 min.segment.length = 0,
+          #                 max.time = 1,
+          #                 max.iter = 1e5,
+          #                 box.padding = 0.5,
+          #                 color = "white",
+          #                 bg.color = "grey30",
+          #                 bg.r = 0.15)+    
+    
+          geom_text_repel(data = dat.signif,
+                          aes(fill = color, label = FeatureID),
+                          size = 5,
+                          max.overlaps = getOption("ggrepel.max.overlaps", default = 80),
+                          segment.linetype = 1,
+                          segment.curvature = -1e-20,
+                          segment.color = "grey50",
+                          box.padding = unit(0.35, "lines"),
+                          point.padding = unit(0.3, "lines"),
+                          arrow = arrow(length = unit(0.005, "npc")),
+                          face = "bold",
+                          # color = "black",     # text color
+                          # bg.color = "white",  # shadow color
+                          bg.r = 0.15)+
+          annotate("text", x=min(dat$logFC), y=-log10(Pval), label=Pval, size=6, color="red")+
+          annotate("text", x=LogFC, y=0, label=LogFC, size=6, color="red")+
+          annotate("text", x=-LogFC, y=0, label=-LogFC, size=6, color="red")+
+          scale_y_continuous(trans = "log1p")+
+          guides(color=guide_legend(override.aes = list(size = 3)))+
+          theme_bw()+
+          theme(axis.title = element_text(color = "black", size = 12),
+                axis.text = element_text(color = "black", size = 10),
+                text = element_text(size = 8, color = "black", family="serif"),
+                panel.grid = element_blank(),
+                #legend.position = "right",
+                legend.position = c(.15, .1),
+                legend.key.height = unit(0.6,"cm"),
+                legend.text = element_text(face = "bold", color = "black", size = 8),
+                strip.text = element_text(face = "bold", size = 14))
+  return(pl)
+}
+
+BoxplotFun <- function(datset=ExprSet,
+                       genelist=c("Asaccharobacter_celatus", "Odoribacter_splanchnicus"),
+                       group_name=subgrp[c(3,2,1)],
+                       group_col=grp.col[c(3,1)]){
+
+  # datset=ExprSet
+  #     genelist=c("Asaccharobacter_celatus", "Odoribacter_splanchnicus")
+  # group_name=subgrp[c(3,2,1)]
+  # group_col=grp.col[c(3,1)]
+
+  if(length(group_name) == 3){
+    group_name2 <- c("CRC", "non_CRC")
+    pheno <- pData(datset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[1], group_name2[1], group_name2[2])) %>%
+      mutate(Group=factor(Group, levels = group_name2)) %>%
+      column_to_rownames("SampleID")
+    group_name <- group_name2
+  }else{
+    pheno <- pData(datset) %>%
+      rownames_to_column("SampleID") %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name)) %>%
+      column_to_rownames("SampleID")
+  }
+  print(table(pheno$Group))  
+
+  edata <- data.frame(exprs(datset)) %>%
+            dplyr::select(rownames(pheno)) %>%
+            rownames_to_column("FeatureID") %>%
+            filter(FeatureID%in%genelist) %>%
+            column_to_rownames("FeatureID")
+
+  mdat <- pheno %>% dplyr::select(Group) %>%
+    rownames_to_column("SampleID") %>%
+    inner_join(t(edata) %>% data.frame() %>% rownames_to_column("SampleID"), by = "SampleID") %>%
+    column_to_rownames("SampleID")
+
+  plotdata <- mdat %>% tidyr::gather(key="FeatureID", value="value", -Group) %>%
+    mutate(Group=factor(Group, levels = group_name))
+  plotdata$FeatureID <- factor(plotdata$FeatureID, levels = genelist)
+
+  pl <- ggplot(plotdata, aes(x=Group, y=value, fill=Group))+
+          stat_boxplot(geom="errorbar", width=0.15,
+                       position=position_dodge(0.4)) +
+          geom_boxplot(width=0.4,
+                       outlier.colour="black",
+                       outlier.shape=21,
+                       outlier.size=.5)+
+          scale_fill_manual(values=group_col)+
+          facet_wrap(facets="FeatureID", scales="free_y")+
+          labs(x="", y="Relative Abundance")+
+          guides(fill="none")+
+          theme_classic()+
+          theme(axis.title = element_text(color="black", size=12),
+                axis.text.x = element_text(color="black", size=10, hjust=.5, vjust=.5, angle=60),
+                text = element_text(size=8, color="black", family="serif"),
+                panel.grid = element_blank(),
+                strip.text = element_text(face="bold", size=12))
+
+  return(pl)
+}
+```
+
+
+### Biomarkers
+```{r, fig.width=8, fig.height=6}
+CRC_nonCRC_Volcano <- VolcanoFun(datset=CRC_nonCRC_DEA,
+                                 group_name=subgrp[c(3,2,1)],
+                                 group_col=grp.col[c(3,1)])
+CRC_nonCRC_Volcano
+
+CRC_nonCRC_Boxplot <- BoxplotFun(datset=ExprSet,
+                                 group_name=subgrp[c(3,2,1)],
+                                 group_col=grp.col[c(3,1)])
+CRC_nonCRC_Boxplot
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```

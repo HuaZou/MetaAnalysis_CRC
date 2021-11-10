@@ -1,0 +1,449 @@
+---
+title: "Logistic Ridge regression model based on the signatures"
+date: "Created: 2021-11-10 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introdution
+
+
+=====================================================
+
+DataStatus: 
+
+  * Healthy Control: HC
+  
+  * Adenoma: AA	
+  
+  * Colorectal Cancer: CRC
+
+* Discovery Cohort: 1112
+
+  * 626 non-CRC samples (481 HC + 145 AA)
+  
+  * 486 CRC samples
+
+* Validation Cohort: 475 
+
+  * 268 non-CRC samples(206 HC + 62 AA)
+  
+  * 207 CRC samples
+  
+=======================================================
+
+Four comparisons between the Colorectal Cancer (CRC) patients and other groups:
+
+  1. CRC 486 vs HC 481
+  
+  2. CRC 486 vs AA 145
+  
+  3. AA 145 vs HC 481
+  
+  4. **CRC 486 vs non-CRC( 481 HC; 145 AA) 626**
+  
+========================================================================
+
+General Evaluation of model performance
+
+* AUC
+
+* Accuracy
+
+* Sensitivity
+
+* Specificity 
+
+* Positive Predictive Value(Precision)
+
+========================================================================
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = T)
+library(dplyr)
+library(tibble)
+library(convert)
+library(data.table)
+library(glmnet)
+library(ggplot2)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Biomarker/Logistic_model/species_profile_Discovery.RDS")
+ExprSet_Val <- readRDS("../../Result/Biomarker/Logistic_model/species_profile_Validation.RDS")
+
+CRC_HC_PSS <- fread("../../Result/Biomarker/Logistic_model/CRC_HC_DEA_signature-2021-11-10.csv")
+CRC_nonCRC_PSS <- fread("../../Result/Biomarker/Logistic_model/CRC_nonCRC_DEA_signature-2021-11-10.csv")
+```
+
+
+### Logistic Ridge regression model 
+```{r}
+build_Ridge <- function(dataset=ExprSet,
+                        testres=CRC_HC_PSS,
+                        group_name=subgrp[c(1,3)],
+                        Prop=1, 
+                        kfold=10,
+                        splitPro=0.5){
+  
+  # dataset=ExprSet
+  # testres=CRC_HC_PSS
+  # group_name=subgrp[c(1,3)]
+  # Prop=1
+  # kfold=10
+  # splitPro=0.5
+
+  # Protein signatures
+  dat_DEP <- testres %>% dplyr::select(Protein, Proportion) %>%
+      filter(Proportion >= Prop)    
+
+  # dataset of DEP
+  if(length(group_name) == 3){
+    group_name2 <- c("non_CRC", "CRC")
+    pheno <- pData(dataset) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[2], group_name2[2], group_name2[1])) %>%
+      mutate(Group=factor(Group, levels = group_name2))
+    group_name <- group_name2
+  }else{
+    pheno <- pData(dataset) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name))    
+  }
+  edata <- exprs(dataset)[dat_DEP$Protein, rownames(pheno)] %>% data.frame()
+  
+  
+
+  mdat_temp <- inner_join(pheno %>% rownames_to_column("SampleID") %>%
+                         dplyr::select(SampleID, Group),
+                       edata %>% t() %>% data.frame() %>%
+                         rownames_to_column("SampleID"),
+                       by = "SampleID") %>%
+      column_to_rownames("SampleID")
+    
+  # Before building model, performing Zscore standardization
+  mdat <- cbind(mdat_temp$Group, scale(mdat_temp %>% dplyr::select(-Group)) %>% data.frame())
+  colnames(mdat)[1] <- "Group"
+  
+  # Data Partition
+  #set.seed(123)
+  require(sampling)
+  sample <- sampling::strata(mdat, 
+                     stratanames = "Group", 
+                     size = round(as.numeric(table(mdat$Group)) * splitPro),
+                     method = "srswor")
+  trainData <- mdat[sample$ID_unit, ]
+  testData <- mdat[-sample$ID_unit, ]
+  print("The Group's number of TrainData")
+  print(table(trainData$Group))
+    
+  dat_table <- as.matrix(trainData %>% dplyr::select(-Group))
+  dat_target <- trainData$Group
+  
+  # preview data distribution
+  # plot(density(dat_table))
+  
+  # determine folds
+  if(dim(trainData)[1] > 10 * 8){
+    kfold <- 10
+  }else{
+    kfold <- kfold
+  }  
+    
+  # feature selection
+  #set.seed(123)  
+  cvfit <- cv.glmnet(x=dat_table,
+                     y=dat_target,
+                     family='binomial',
+                     nfolds = kfold,
+                     alpha = 0,
+                     nlambda = 100,
+                     type.measure = "auc")
+  #plot(cvfit)
+  predicted <- predict(cvfit, as.matrix(testData[, -1]), type = "response", s = cvfit$lambda.min)
+    
+  # AUC
+  require(ggplot2)
+  require(pROC)
+  rocobj <- roc(testData$Group, predictor=predicted[, 1])
+  
+  # AUC 95% CI 
+  auc_95CI <- ci.auc(rocobj, conf.level = 0.95)
+  auc_95CI_value <- round(as.numeric(auc_95CI), 3)
+  auc_95CI_label <- paste0("AUC = ", auc_95CI_value[2], " (", 
+                            auc_95CI_value[1], ", ", 
+                           auc_95CI_value[3], ")")
+
+  auc <- round(auc(testData$Group, predictor=predicted[, 1]), 4)
+  
+  pl <- ggroc(rocobj, color = "red", linetype = 1, size = 1, alpha = 1, legacy.axes = T)+
+                  geom_abline(intercept = 0, slope = 1, color="grey", size = 1, linetype=1)+
+                labs(x = "False Positive Rate (1 - Specificity)",
+                     y = "True Positive Rate (Sensivity or Recall)")+
+                # annotate("text",x = .75, y = .25, label=paste("AUC =", auc),
+                #          size = 5, family="serif")+
+                annotate("text",x = .75, y = .25, label=auc_95CI_label,
+                         size = 5, family="serif")+    
+                coord_cartesian(xlim = c(0, 1), ylim = c(0, 1))+
+                theme_bw()+
+                theme(panel.background = element_rect(fill = 'transparent'),
+                      axis.ticks.length = unit(0.4, "lines"), 
+                      axis.ticks = element_line(color='black'),
+                      axis.line = element_line(size=.5, colour = "black"),
+                      axis.title = element_text(colour='black', size=12,face = "bold"),
+                      axis.text = element_text(colour='black',size=10),
+                      text = element_text(size=8, color="black", family="serif")) 
+  
+  
+  # predictors
+  predictors <- data.frame(as.matrix(coef(cvfit, cvfit$lambda.min))) %>%
+          setNames("Score") %>%
+          rownames_to_column("Protein") %>%
+          slice(-1) %>%
+          filter(Score!=0) %>%
+      inner_join(testres, by = "Protein")
+
+  res <- list(fit=cvfit,
+              roc=rocobj,
+              auc=auc,
+              auc_CI=auc_95CI_label,
+              pl=pl,
+              marker=predictors)
+  
+  return(res)
+}
+
+
+model_validation <- function(dataset=ExprSet_Val,
+                             datmarker=CRC_nonCRC_Ridge$marker$Protein,
+                             datfit=CRC_nonCRC_Ridge$fit,
+                             group_name=subgrp[1:3]){
+
+  # dataset=ExprSet_Val
+  # datmarker=CRC_nonCRC_Ridge$marker$Protein
+  # datfit=CRC_nonCRC_Ridge$fit
+  # group_name=subgrp[1:3]
+
+  # dataset of DEP
+  if(length(group_name) == 3){
+    group_name2 <- c("non_CRC", "CRC")
+    pheno <- pData(dataset) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=ifelse(Group == group_name2[2], group_name2[2], group_name2[1])) %>%
+      mutate(Group=factor(Group, levels = group_name2))
+    group_name <- group_name2
+  }else{
+    pheno <- pData(dataset) %>%
+      filter(Group%in%group_name) %>%
+      mutate(Group=factor(Group, levels = group_name))
+  }
+
+  profile <- exprs(dataset)
+  edata <- profile[, colnames(profile)%in%rownames(pheno)] %>%
+    data.frame() %>%
+    rownames_to_column("FeatureID") %>%
+    filter(FeatureID %in% datmarker) %>%
+    column_to_rownames("FeatureID")
+    
+  # Data of whole feature
+  mdat_temp <- inner_join(pheno %>% rownames_to_column("SampleID") %>%
+                       dplyr::select(SampleID, Group),
+                     edata %>% t() %>% data.frame() %>%
+                       rownames_to_column("SampleID"),
+                     by = "SampleID") %>%
+    column_to_rownames("SampleID")
+  
+  # Before building model, performing Zscore standardization
+  mdat <- cbind(mdat_temp$Group, scale(mdat_temp %>% dplyr::select(-Group)) %>% data.frame())
+  colnames(mdat)[1] <- "Group" 
+  
+  #datfit <- datmodel$fit
+
+  # evaluate the performance of model
+  predict_class <- predict(datfit, as.matrix(mdat[, -1]), type = "class")
+  print(caret::confusionMatrix(factor(predict_class, levels = group_name), 
+                               factor(mdat$Group, levels = group_name)))
+
+  # if(nlevels(pred_raw$PredictedGroup) > 1){
+  #   print(caret::confusionMatrix(pred_raw, mdat$Group))    
+  # }
+  pred_prob <- predict(datfit, as.matrix(mdat[, -1]), type = "response", s=datfit$lambda.min)
+
+  # define roc and calculate AUC
+  rocobj <- roc(mdat$Group, pred_prob[, 1])
+  
+  # AUC 95% CI 
+  auc_95CI <- ci.auc(rocobj, conf.level = 0.95)
+  auc_95CI_value <- round(as.numeric(auc_95CI), 3)
+  auc_95CI_label <- paste0("AUC = ", auc_95CI_value[2], " (", 
+                            auc_95CI_value[1], ", ", 
+                           auc_95CI_value[3], ")")
+  
+  auc <- round(auc(mdat$Group, pred_prob[, 1]), 3)
+  roc <- tibble(tpr=rocobj$sensitivities,
+                fpr=1 - rocobj$specificities)
+  pl <- ggplot(data=roc, aes(x=fpr, y=tpr))+
+            geom_path(color="red", size=1)+
+            geom_abline(intercept=0, slope=1, color="grey", size=1, linetype=2)+
+            labs(x = "False Positive Rate (1 - Specificity)",
+                 y = "True Positive Rate (Sensivity or Recall)")+
+            # annotate("text", x=.75, y=.25, label=paste("AUC =", auc),
+            #          size=5, family="serif")+
+            annotate("text", x=.75, y=.25, label=auc_95CI_label,
+                     size=5, family="serif")+    
+            coord_cartesian(xlim=c(0, 1), ylim=c(0, 1))+
+            theme_bw()+
+            theme(panel.background = element_rect(fill="transparent"),
+                  axis.ticks.length = unit(0.4, "lines"),
+                  axis.ticks = element_line(color="black"),
+                  axis.line = element_line(size=.5, color="black"),
+                  axis.title = element_text(color='black', size=12, face="bold"),
+                  axis.text = element_text(color='black', size=10),
+                  text = element_text(size=8, color="black", family="serif"))
+
+  # Accuracy
+  if(length(unique(predict_class)) > 1){
+    CFM <- caret::confusionMatrix(factor(predict_class, levels = group_name), 
+                                  factor(mdat$Group, levels = group_name))
+    CFM_index <- data.frame(Value=CFM$byClass) %>%
+      rownames_to_column("Index") %>%
+      rbind(data.frame(Index="Accuracy", Value=as.numeric(CFM$overall[1])))
+  }else{
+    CFM <- NA
+    CFM_index <- NA
+  }
+
+  res <- list(roc=rocobj,
+              auc=auc,
+              auc_CI=auc_95CI_label,
+              CFM=CFM,
+              index=CFM_index,
+              pl=pl)
+
+  return(res)
+}
+
+
+model_performance <- function(rocobject=CRC_nonCRC_Ridge$roc,
+                              auc_CI=CRC_nonCRC_Ridge$auc_CI,
+                              tag="CRC vs Non-CRC"){
+  
+  # rocobject=CRC_nonCRC_Ridge$roc
+  # auc_CI=CRC_nonCRC_Ridge$auc_CI
+  # tag="CRC vs Non-CRC"
+  
+  require(pROC)
+  # 95% CI 
+  CI95_Normal <- function(x, tag){
+    # Calculating a Confidence Interval From a Normal Distribution
+    x_length <- length(x)
+    x_mean <- signif(mean(x), 3)
+    x_sd <- sd(x)
+    error <- qnorm(0.975) * x_sd/sqrt(x_length)
+    left <- signif(x_mean - error, 3)
+    right <- signif(x_mean + error, 3)
+    res <- paste0(x_mean, " (", left, ", ", right, ")")
+    #res <- paste0(tag, " = ", x_mean, " (", left, ", ", right, ")")
+    return(res)
+  }
+  
+  # Sensitivity and Specificity and positive predictive value
+  ss <- coords(rocobject, "all", ret="sensitivity", transpose = TRUE)
+  ss_95CI <- CI95_Normal(ss, "sensitivity")
+
+  sf <- coords(rocobject, "all", ret="specificity", transpose = TRUE)
+  sf_95CI <- CI95_Normal(sf, "specificity")
+
+  PPV <- coords(rocobject, "all", ret="precision", transpose = TRUE)
+  PPV_95CI <- CI95_Normal(PPV[!is.nan(PPV)], "precision")
+  
+  acc <- coords(rocobject, "all", ret="accuracy", transpose = TRUE)
+  acc_95CI <- CI95_Normal(acc, "accuracy")  
+  
+  # AUC
+  auc_95CI <- gsub("AUC = ", "", auc_CI) 
+  
+  res <- data.frame(Name=tag, AUC=auc_95CI, Accuracy=acc_95CI,
+                    Sensitivity=ss_95CI, Specificity=sf_95CI, Precision=PPV_95CI)
+  
+  return(res)
+
+}
+
+if(!dir.exists("../../Result/Biomarker/Logistic_model")){
+  dir.create("../../Result/Biomarker/Logistic_model", recursive = T)
+}
+```
+
+
+### CRC vs HC 
+```{r, fig.width=12, fig.height=5}
+CRC_HC_Ridge <- build_Ridge(dataset=ExprSet,
+                            testres=CRC_HC_PSS,
+                            group_name=subgrp[c(1,3)],
+                            Prop=0.7, 
+                            kfold=10,
+                            splitPro=0.5)
+
+model_performance(rocobject=CRC_HC_Ridge$roc,
+                  auc_CI=CRC_HC_Ridge$auc_CI,
+                  tag="HC vs CRC")
+
+CRC_HC_Val <- model_validation(dataset=ExprSet_Val,
+                               datmarker=CRC_HC_Ridge$marker$Protein,
+                               datfit=CRC_HC_Ridge$fit,
+                               group_name=subgrp[c(1,3)])
+CRC_HC_Val$pl
+
+CRC_HC_filename_Ridge <- paste0("../../Result/Biomarker/Logistic_model/CRC_HC_DEA_Ridge-", Sys.Date(), ".RDS")
+saveRDS(CRC_HC_Ridge, file = CRC_HC_filename_Ridge, compress = TRUE)
+CRC_HC_filename_Ridge_val <- paste0("../../Result/Biomarker/Logistic_model/CRC_HC_DEA_Ridge_Validation-", Sys.Date(), ".RDS")
+saveRDS(CRC_HC_Val, file = CRC_HC_filename_Ridge_val, compress = TRUE)
+```
+
+
+### CRC vs non_CRC 
+```{r, fig.width=12, fig.height=5}
+CRC_nonCRC_Ridge <- build_Ridge(dataset=ExprSet,
+                            testres=CRC_nonCRC_PSS,
+                            group_name=subgrp[c(1:3)],
+                            Prop=.7, 
+                            kfold=10,
+                            splitPro=0.5)
+
+model_performance(rocobject=CRC_nonCRC_Ridge$roc,
+                  auc_CI=CRC_nonCRC_Ridge$auc_CI,
+                  tag="nonCRC vs CRC")
+
+CRC_nonCRC_Val <- model_validation(dataset=ExprSet_Val,
+                                   datmarker=CRC_nonCRC_Ridge$marker$Protein,
+                                   datfit=CRC_nonCRC_Ridge$fit,
+                                   group_name=subgrp[c(1:3)])
+
+CRC_nonCRC_filename_Ridge <- paste0("../../Result/Biomarker/Logistic_model/CRC_nonCRC_DEA_Ridge-", Sys.Date(), ".RDS")
+saveRDS(CRC_nonCRC_Ridge, file = CRC_nonCRC_filename_Ridge, compress = TRUE)
+CRC_nonCRC_filename_Ridge_val <- paste0("../../Result/Biomarker/Logistic_model/CRC_nonCRC_DEA_Ridge_Validation-", Sys.Date(), ".RDS")
+saveRDS(CRC_nonCRC_Val, file = CRC_nonCRC_filename_Ridge_val, compress = TRUE)
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+

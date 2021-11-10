@@ -1,0 +1,170 @@
+---
+title: "Data Partition"
+date: "Created: 2021-11-10 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+Dividing samples into discovery set and validation set according to the prob = 0.7
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(convert)
+library(data.table)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+table(pData(ExprSet)$SubGroup)
+```
+
+
+### Data Partition
+```{r}
+prob <- 0.7
+phenotype <- pData(ExprSet)
+
+ceiling(round(nrow(phenotype) * prob) * table(phenotype$SubGroup)/nrow(phenotype))
+
+table(phenotype$SubGroup) - ceiling(round(nrow(phenotype) * prob) * table(phenotype$SubGroup)/nrow(phenotype))
+```
+
+
+Result: the number of Cohort
+
+* Discovery Cohort: 1112
+
+  * 626 non-CRC samples (481 HC + 145 AA)
+  
+  * 486 CRC samples
+
+* Validation Cohort: 475 
+
+  * 268 non-CRC samples(206 HC + 62 AA)
+  
+  * 207 CRC samples
+
+
+### Function
+```{r}
+get_ExprSet <- function(datset=ExprSet,
+                        group_info="SubGroup",
+                        SplitPro=0.7){
+
+  # datset=ExprSet
+  # group_info="SubGroup"
+  # SplitPro=0.7
+  
+  phenotype <- pData(datset)
+  profile <- exprs(datset)
+  feature <- fData(datset)
+  colnames(phenotype)[which(colnames(phenotype) == group_info)] <- "Group"
+  
+  mdat <- inner_join(phenotype %>% rownames_to_column("SampleID") %>%
+                       dplyr::select(SampleID, Group),
+                     profile %>% t() %>% data.frame() %>%
+                       rownames_to_column("SampleID"),
+                     by = "SampleID") %>%
+    #mutate(Group=factor(Group, levels = subgrp)) %>%
+    column_to_rownames("SampleID") 
+  
+  # Data Partition
+  if(!is.null(SplitPro)){
+    require(sampling)
+    #set.seed(123)
+    sample <- sampling::strata(mdat, 
+                       stratanames = "Group", 
+                       size = rev(round(as.numeric(table(mdat$Group)) * SplitPro)),
+                       method = "srswor")
+    trainData <- mdat[sample$ID_unit, ]
+    testData <- mdat[-sample$ID_unit, ]
+  }else{
+    trainData <- mdat
+    testData <- mdat
+  }
+  
+  phenotype_discovery <- phenotype[rownames(phenotype)%in%rownames(trainData), ]
+  profile_discovery <- profile[, colnames(profile)%in%rownames(phenotype_discovery)]
+  
+  phenotype_validation <- phenotype[rownames(phenotype)%in%rownames(testData), ]
+  profile_validation <- profile[, colnames(profile)%in%rownames(phenotype_validation)]  
+  
+  if(!any(rownames(phenotype_discovery) == colnames(profile_discovery))){
+    stop("The Order of SampleID in discovery is wrong")
+  }
+  
+  if(!any(rownames(phenotype_validation) == colnames(profile_validation))){
+    stop("The Order of SampleID in validation is wrong")
+  }
+  
+  require(convert)
+  exprs_discovery <- as.matrix(profile_discovery)
+  adf_discovery <- new("AnnotatedDataFrame", data=phenotype_discovery)
+  fdf <- new("AnnotatedDataFrame", data=feature)
+  experimentData <- new("MIAME",
+          name="Hua Zou", lab="UCAS",
+          contact="zouhua1@outlook.com",
+          title="Tumor Experiment",
+          abstract="Profile",
+          url="www.zouhua.top",
+          other=list(notes="microbiota"))
+  expressionSet <- new("ExpressionSet",
+                       exprs=exprs_discovery,
+                       phenoData=adf_discovery,
+                       featureData=fdf,
+                       experimentData=experimentData)
+  
+  
+  exprs_validation <- as.matrix(profile_validation)
+  adf_validation <-  new("AnnotatedDataFrame", data=phenotype_validation)
+  expressionSet_validation <- new("ExpressionSet", 
+                            exprs=exprs_validation,
+                            phenoData=adf_validation,
+                            featureData=fdf,
+                            experimentData=experimentData)
+  
+  res <- list(Discovery=expressionSet,
+              Validation=expressionSet_validation)
+  
+  return(res)  
+}
+
+if(!dir.exists("../../Result/Biomarker/Logistic_model")){
+  dir.create("../../Result/Biomarker/Logistic_model", recursive = T)
+}
+```
+
+
+### Run 
+```{r}
+datExpr <- get_ExprSet(datset=ExprSet)
+
+saveRDS(datExpr$Discovery, "../../Result/Biomarker/Logistic_model/species_profile_Discovery.RDS", compress = T)
+saveRDS(datExpr$Validation, "../../Result/Biomarker/Logistic_model/species_profile_Validation.RDS", compress = T)
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+
