@@ -1,0 +1,242 @@
+---
+title: "Enterotype: Dirichlet Multinomial Mixtures"
+date: "Created: 2021-11-22 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+> Dirichlet Multinomial Mixtures (DMM) is a probabilistic method for community typing (or clustering) of microbial community profiling data. It is an infinite mixture model, which means that the method can infer the optimal number of community types. Note that the number of community types is likely to grow with data size.
+
+
+The inputfile of Microbiome Data must be **Count matrix** (samples:row x taxa:col).
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(parallel)
+library(convert)
+library(vegan)
+library(DirichletMultinomial)
+library(ggplot2)
+library(ggpubr)
+library(scales)
+library(RColorBrewer)
+
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Profile/genus_profile.RDS")
+```
+
+
+### Pick the Count matrix
+
+* Row -> Samples
+
+* Column -> Genus
+```{r}
+count <- (exprs(ExprSet) * 10e6) %>% t()
+dim(count)
+```
+
+
+### Fit the DMM model
+```{r DMM, fig.width=6, fig.height=5, warning=FALSE, message=FALSE, eval=TRUE}
+if(!dir.exists("../../Result/Enterotype")){
+  dir.create("../../Result/Enterotype", recursive = T)
+}
+
+fit_file <- paste0("../../Result/Enterotype/","fit.RData")
+
+if(!file.exists(fit_file)){
+  cl <- makeCluster(20)
+  clusterEvalQ(cl, library(DirichletMultinomial))
+  clusterExport(cl, c("count"))
+  fit <- parLapply(cl, 1:7, dmn, count=count, verbose=TRUE)
+  stopCluster(cl)
+  save(fit, file=fit_file)
+}else{
+  load(fit_file)
+}
+```
+
+
+### Check model fit with different number of mixture components using standard information criteria
+```{r, fig.width=6, fig.height=5, warning=FALSE, message=FALSE, eval=TRUE}
+lplc <- base::sapply(fit, DirichletMultinomial::laplace) # AIC / BIC / Laplace
+aic  <- base::sapply(fit, DirichletMultinomial::AIC) # AIC / BIC / Laplace
+bic  <- base::sapply(fit, DirichletMultinomial::BIC) # AIC / BIC / Laplace
+
+plot(lplc, type="b", xlab="Number of Dirichlet Components", ylab="Model Fit")
+lines(aic, type="b", lty = 2)
+lines(bic, type="b", lty = 3)
+```
+```{r, fig.width=6, fig.height=5, warning=FALSE, message=FALSE, eval=TRUE}
+Num <- data.frame(Fit=as.numeric(lplc), num=seq(1, 7, 1))
+ggplot(Num, aes(x=num, y=Fit))+geom_point(size=2)+
+  geom_line(aes(group=1), linetype=2)+
+  scale_x_continuous(breaks = seq(1, 7, 1))+
+  labs(x="Number of Dirichlet Components", y="Model Fit")+
+  scale_y_continuous(labels = comma)+  
+  theme_bw()+
+  theme(axis.title = element_text(size=10, color="black", face="bold"),
+          axis.text = element_text(size=9, color="black", face="bold"),
+          text = element_text(size=8, color="black"),
+          panel.grid = element_blank(), 
+          strip.text = element_text(size=10, color="black", face="bold"))
+```
+
+### Pick the optimal model
+```{r}
+best <- fit[[which.min(lplc)]]
+best
+```
+
+
+### Mixture parameters pi and theta
+```{r}
+mixturewt(best)
+```
+
+
+### Sample-component assignments
+```{r} 
+ass <- apply(mixture(best), 1, which.max)
+```
+
+
+### Contribution of each taxonomic group to each component
+```{r, fig.width=9, fig.heigth=6, out.width="400px", warning=FALSE, message=FALSE}
+for (k in seq(ncol(fitted(best)))) {
+  d <- reshape2::melt(fitted(best))
+  colnames(d) <- c("Genus", "cluster", "value")
+  d <- subset(d, cluster == k) %>%
+     arrange(value) %>%
+     mutate(Genus = factor(Genus, levels = unique(Genus))) %>%
+     filter(abs(value) > quantile(abs(value), 0.8))     
+  p <- ggplot(d, aes(x = Genus, y = value)) +
+       geom_bar(stat = "identity") +
+       coord_flip() +
+       labs(title = paste("Top drivers: community type", k))
+  print(p)
+}
+```
+
+
+**Notes**: Although we found that there were 7 subgroup from the above analysis, type 1-3,6 have the similar predominant genus(*Bacteriodes*) and type 4,7 have the similar predominant genus(*Prevotella*) too, the type 5 is *Blautia* genus. Setting the number of best cluster into 2 or 3 would be OK.
+
+
+### Rechoosing the optimal cluster  
+```{r}
+best_v2 <- fit[[2]]  # k=2
+for (k in seq(ncol(fitted(best_v2)))) {
+  d <- reshape2::melt(fitted(best_v2))
+  colnames(d) <- c("Genus", "cluster", "value")
+  d <- subset(d, cluster == k) %>%
+     arrange(value) %>%
+     mutate(Genus = factor(Genus, levels = unique(Genus))) %>%
+     filter(abs(value) > quantile(abs(value), 0.8))     
+  p <- ggplot(d, aes(x = Genus, y = value)) +
+       geom_bar(stat = "identity") +
+       coord_flip() +
+       labs(title = paste("Top drivers: community type", k))
+  print(p)
+}
+```
+
+
+### Show model enterotype
+```{r}
+best <- best_v2 #fit[[which.min(lplc)]]
+col <- apply(mixture(best), 1, which.max)
+model.col.frame <- data.frame(SampleID=names(col), E=col)
+
+p0 <- fitted(fit[[1]], scale=TRUE)
+p2 <- fitted(best, scale=TRUE)
+colnames(p2) <- paste("m", 1:max(as.numeric(col)), sep="")
+diff <- rowSums(abs(p2 - as.vector(p0)))
+o <- order(diff, decreasing=TRUE)
+cdiff <- cumsum(diff[o]) / sum(diff)
+df <- head(cbind(Mean=p0[o], p2[o,], diff=diff[o], cdiff), 10)
+df <- df[order(df[, 1], decreasing = T), ]
+
+# Choose the count profile to apply
+swiss.x <- sweep(t(count), 2, apply(t(count), 2, sum),"/")
+swiss.mds <- metaMDS(t(swiss.x))
+
+dat1 <- inner_join(data.frame(swiss.mds$points) %>% 
+                     rownames_to_column("SampleID"),
+                  model.col.frame,
+                  by = "SampleID") %>% select(-SampleID) %>% 
+  mutate(Enterotype=paste0("E", E))
+
+ggplot(dat1, aes(x=MDS1, y=MDS2))+
+  geom_point(aes(color=Enterotype), size=2, shape=16)+
+  theme_bw()+
+  theme(axis.title = element_text(size=10, color="black", face="bold"),
+          axis.text = element_text(size=9, color="black", face = "bold"),
+          text = element_text(size=8, color="black"),
+          panel.grid = element_blank(),
+          legend.background = element_rect(color = "black"), 
+          strip.text = element_text(size=10, color="black", face="bold"))
+```
+
+
+### Top most abundance genus
+```{r, fig.width=12, fig.heigth=6, out.width="400px"}
+num2 <- 2
+diff_in_fit <- paste(format(sum(df[1:num2, 4]) * 100, digit=4), "%", sep="")
+bac <- rownames(df)[1:num2]
+dat <- as.matrix(swiss.x[pmatch(bac, rownames(swiss.x)), ])
+tmp <- as.data.frame(cbind(t(dat[c(1:num2), ]), Enterotype=col))
+gdat <- reshape2::melt(tmp, id.vars="Enterotype", variable.name="Genus", value.name="Relative abundance")
+gdat$Enterotype <- factor(gdat$Enterotype)
+
+ggplot(gdat,aes(x=Genus, y=`Relative abundance`)) +
+  stat_boxplot(aes(color = Enterotype), 
+    geom = "errorbar", width = 0.25,
+    size = .3, position = position_dodge(.77))+  
+  geom_boxplot(aes(fill=Enterotype))+
+  guides(color=F)+ 
+  xlab("")+
+  ylab("Ralative abundance")+
+  scale_y_continuous(breaks=seq(0, 1, 0.2))+
+  theme_bw()+
+  theme(axis.title = element_text(size=10, color="black", face="bold"),
+        axis.text = element_text(size=9, color="black", face = "bold"),
+        text = element_text(size=8, color="black"),
+        panel.grid = element_blank())
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference 
+
+1. [Dirichlet Multinomial Mixtures (DMM)](https://doi.org/10.1371/journal.pone.0030126) (Quince et al. 2012)
+
+2. [DirichletMultinomial](https://rdrr.io/bioc/DirichletMultinomial/f/inst/doc/DirichletMultinomial.pdf)
+
+3. [Clustering data with Dirichlet Mixtures in Edward and Pymc3](https://www.ritchievink.com/blog/2018/06/05/clustering-data-with-dirichlet-mixtures-in-edward-and-pymc3/)

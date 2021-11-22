@@ -1,0 +1,282 @@
+---
+title: "Enterotype: Partition Around Medoids Clustering"
+date: "Created: 2021-11-22 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+### Introduction
+
+Clustering fecal samples into enterotypes by using Partition Around Medoids Clustering(PAM) is common routine for subgroup population in metagenomic analysis. Here is the description of PAM.
+
+> 1. Select k objects from the dataset as the initial k medoids.
+>
+> 2. If, some k objects are already marked to be used as medoids, use them as medoids in the data-set.
+>
+> 3. Calculate the dissimilarity matrix (Euclidean distance or Manhattan distance et al).
+>
+> 4. Assign other objects to their closest medoids.
+> 
+> 5. For each cluster, if you find any object that can reduce the average dissimilarity co-efficient, use it as that cluster’s medoid. Also, that object should be chosen as medoid which decreases the average dissimilarity co-efficient the most.
+>
+> 6. If you find new medoid, go back to step 4 and reiterate till you don’t get any new medoid.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+library(dplyr)
+library(tibble)
+library(convert)
+library(factoextra)
+library(cluster)
+library(clusterSim)
+library(ade4)
+library(ggplot2)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+```
+
+
+### Function
+```{r}
+JSD_dist_Fun <- function(datset=ExprSet, 
+                         pseudocount=0.000001, 
+                         ...){
+  
+  # datset=ExprSet
+  # pseudocount=0.000001
+  
+  
+  KLD <- function(x, y){sum(x *log(x/y))}
+  JSD <- function(x, y){sqrt(0.5 * KLD(x, (x+y)/2) + 0.5 * KLD(y, (x+y)/2))}
+
+  inMatrix <- exprs(datset) %>% data.frame()
+  matrixColSize <- length(colnames(inMatrix))
+  matrixRowSize <- length(rownames(inMatrix))
+  colnames <- colnames(inMatrix)
+  resultsMatrix <- matrix(0, matrixColSize, matrixColSize)
+  inMatrix <- apply(inMatrix, 1:2, function(x){ifelse(x==0, pseudocount, x)})
+  
+  for(i in 1:matrixColSize){
+    for(j in 1:matrixColSize){ 
+      resultsMatrix[i, j] <- JSD(as.vector(inMatrix[, i]), as.vector(inMatrix[, j]))
+    }
+  }
+  colnames -> colnames(resultsMatrix) -> rownames(resultsMatrix)
+  as.dist(resultsMatrix) -> resultsMatrix
+
+  attr(resultsMatrix, "method") <- "dist"
+  
+  return(resultsMatrix)
+}
+
+PAM_Cluster_Fun <- function(x, k){
+  
+  # x=dat_JSD
+  # k=best_k
+  
+  cluster <- as.vector(pam(as.dist(x), k, diss=TRUE)$clustering)
+  
+  return(cluster)
+}
+
+
+CH_Index_Fun <- function(datset=ExprSet,
+                         pseudocount=0.000001,
+                         distance.jsd=dat_JSD, 
+                         kvector=c(1:20), 
+                         clusterSim=TRUE){
+  # datset=ExprSet
+  # pseudocount=0.000001
+  # distance.jsd=dat_JSD
+  # kvector=c(1:20)
+  # clusterSim=TRUE  
+  
+  inMatrix <- exprs(datset) %>% data.frame()
+  dataframe <- apply(inMatrix, 1:2, function(x){ifelse(x==0, pseudocount, x)})
+
+  if(clusterSim){
+  	require(clusterSim)
+  	kvector <- unique(as.integer(kvector))
+  	nclusters <- NULL
+		for(k in kvector){ 
+			if(k==1){
+				nclusters[k] <- 0
+			}else{
+				if(is.null(distance.jsd)){
+				  stop("a distance matrix is needed")
+				}else{
+  				cluster <- PAM_Cluster_Fun(distance.jsd, k)
+  				nclusters[k] <- index.G1(t(dataframe), cluster, d = distance.jsd, centrotypes = "medoids")				    
+				}
+			}
+		}
+	}else{
+	  nclusters <- pamk(t(dataframe), criterion="ch", krange=kvector)$crit
+	}
+  
+  return(nclusters)
+}
+
+if(!dir.exists("../../Result/Enterotype")){
+  dir.create("../../Result/Enterotype", recursive = T)
+}
+```
+
+
+### Run: JSD distance
+```{r}
+# calculate JSD distance
+dat_JSD <- JSD_dist_Fun(datset = ExprSet)
+# primary clustering 
+dat_cluster <- PAM_Cluster_Fun(dat_JSD, k=4)
+# determine best cluster
+dat_nclusters <- CH_Index_Fun(datset = ExprSet, distance.jsd = dat_JSD)
+plot(dat_nclusters, type="h", xlab="k clusters", ylab="CH index", main="Optimal number of clusters")
+
+# final cluster result
+k_best <- which(dat_nclusters == max(dat_nclusters), arr.ind = TRUE)
+dat_cluster_final <- PAM_Cluster_Fun(dat_JSD, k = k_best)
+mean(silhouette(dat_cluster_final, dat_JSD)[, k_best])
+```
+
+### Visualization: Principal Coordinates Analysis (PCoA)
+```{r}
+# s.class
+obs.pcoa <- dudi.pco(dat_JSD, scannf = F, nf = 3)
+s.class(obs.pcoa$li, 
+        fac = as.factor(dat_cluster_final), 
+        grid = F, 
+        sub = "Principal coordiante analysis", 
+        col=c(1, 2))
+
+# ggplot2
+PCoAFun <- function(dcluster=dat_cluster_final,
+                    distance=dat_JSD){
+  
+  # dcluster=dat_cluster_final
+  # distance=dat_JSD
+  
+  require(ape)
+  require(vegan)
+  pcoa <- pcoa(distance)
+  eig <- pcoa$values[, "Eigenvalues"]
+  eig_var <- eig[1:2]
+  eig_var_explain <- round(eig_var/sum(eig), 4) * 100   
+  # explains variable 
+  explains <- paste0(paste0("PCoA", seq(2)), " (", paste0(eig_var_explain, "%"), ")")
+  # principal component score of each sample
+  score <- cbind(pcoa$vectors[, c(1:2)] %>% data.frame() %>%
+                        setNames(paste0("PCoA", seq(2))), 
+                      dcluster %>% data.frame() %>% 
+                        setNames("Enterotype")) %>%
+    mutate(Enterotype=paste0("E", Enterotype)) %>%
+    mutate(Enterotype=factor(Enterotype))
+  
+  pl_scatter <- ggplot(score, aes(x=PCoA1, y=PCoA2))+
+              geom_point(aes(fill=Enterotype), size=3, shape=21, stroke = .8, color = "black")+
+              stat_ellipse(aes(color=Enterotype), level = 0.95, linetype = 1, size = 1.5)+
+              labs(x=explains[1], y=explains[2])+
+              scale_color_manual(values = c("red", "Blue"))+
+              scale_fill_manual(values = c("red", "Blue"))+
+              guides(color="none")+
+              theme_classic()+
+              theme(axis.title = element_text(size = 10, color = "black", face = "bold"),
+                    axis.text = element_text(size = 9, color = "black"),
+                    text = element_text(size = 8, color = "black", family = "serif"),
+                    strip.text = element_text(size = 9, color = "black", face = "bold"), 
+                    panel.grid = element_blank(),
+                    legend.title = element_text(size = 11, color = "black", family = "serif"),
+                    legend.text = element_text(size = 10, color = "black", family = "serif"),
+                    legend.position = c(0, 0),
+                    legend.justification = c(0, 0),
+                    legend.background = element_rect(color = "black", fill = "white", linetype = 2, size = 0.5))
+  
+  group <- levels(score$Enterotype)
+  cmp <- NULL
+  for(i in 1:(length(group) -1 )){
+    for(j in (i+1):length(group)){
+      tmp <- c(group[i], group[j])
+      if(is.null(cmp)){
+        cmp[[1]] <- tmp
+      }else{
+        cmp[[i+1]] <- tmp
+      }
+    }
+  }  
+  
+  pl_pcoa1_boxplot <- ggplot(score, aes(x=Enterotype, y=PCoA1, fill=Enterotype))+
+        stat_boxplot(geom = "errorbar", width = .12)+
+        geom_boxplot(width = .3, outlier.shape = 3, outlier.size = 1)+
+        stat_summary(fun = mean, geom = "point", shape = 16, 
+                     size = 2, color = "black")+
+        guides(fill=F)+
+        ggpubr::stat_compare_means(comparisons = cmp,
+                           method = "wilcox.test", label = "p.label")+
+        labs(x="", y="")+
+        theme_bw()+
+        scale_fill_manual(values = c("red", "Blue"))+
+        coord_flip()+
+        theme(axis.text = element_text(size = 9, color = "black"),
+              axis.text.x = element_blank(),
+              axis.ticks.x = element_blank(), 
+              panel.grid = element_blank())
+  
+  pl_pcoa2_boxplot <- ggplot(score, aes(x=Enterotype, y=PCoA2, fill=Enterotype))+
+        stat_boxplot(geom = "errorbar", width = .12)+
+        geom_boxplot(width = .3, outlier.shape = 3, outlier.size = 1)+
+        stat_summary(fun = mean, geom = "point", shape = 16, 
+                     size = 2, color = "black")+
+        guides(fill=F)+
+        ggpubr::stat_compare_means(comparisons = cmp,
+                           method = "wilcox.test", label = "p.label")+
+        labs(x="", y="")+
+        theme_bw()+
+        scale_fill_manual(values = c("red", "Blue"))+
+        theme(axis.text = element_text(size = 9, color = "black"),
+              axis.text.y = element_blank(),
+              axis.ticks.y = element_blank(), 
+              panel.grid = element_blank()) 
+  
+  require(cowplot)
+  pl <- plot_grid(plot_grid(pl_pcoa1_boxplot, pl_scatter, ncol=1, align = "hv", rel_heights = c(.5, 2)),
+                  pl_pcoa2_boxplot, nrow=1, align = "hv", rel_widths = c(2, .5))
+  
+  return(pl)
+}
+
+PCoAFun(dcluster=dat_cluster_final, distance=dat_JSD)
+```
+
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference 
+
+1. [BiotypeR](https://github.com/tapj/biotyper/blob/master/R/BiotypeR.r)
+
+2 .[PAM Clustering Using R](https://mlforanalytics.com/2020/05/23/pam-clustering-using-r/)
+
+3. [K-means vs K-mediods](https://www.datamining365.com/2020/03/partitional-clustering-k-means.html)
+
+4. [R语言：肠型分析](https://www.jianshu.com/p/7d550681e37f)
