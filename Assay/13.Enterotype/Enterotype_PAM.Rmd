@@ -48,7 +48,7 @@ grp.col <- c("#568875", "#73FAFC", "#EE853D")
 
 ### Importing Data 
 ```{r}
-ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+ExprSet <- readRDS("../../Result/Profile/genus_profile.RDS")
 ```
 
 
