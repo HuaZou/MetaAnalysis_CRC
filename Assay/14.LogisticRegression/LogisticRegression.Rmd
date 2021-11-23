@@ -1,0 +1,371 @@
+---
+title: "Logistic Regression classsification"
+date: "Created: 2021-11-23 Updated: `r Sys.Date()`"
+author: 
+  - name: "Hua Zou"
+    email: "zouhua1@outlook.com"
+output: 
+  html_notebook:
+    codes: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, message = F)
+suppressMessages(library(plyr))
+suppressMessages(library(Amelia))
+suppressMessages(library(corrplot))
+suppressMessages(library(ggplot2))
+suppressMessages(library(MASS))
+suppressMessages(library(randomForest))
+suppressMessages(library(party))
+suppressMessages(library(caret))
+suppressMessages(library(GGally))
+suppressMessages(library(corrplot))
+suppressMessages(library(caTools))
+suppressMessages(library(MASS))
+suppressMessages(library(car))
+suppressMessages(library(randomForest))
+suppressMessages(library(dplyr))
+suppressMessages(library(pROC))
+suppressMessages(library(mboost))
+suppressMessages(library(ggalluvial))
+suppressMessages(library(gridExtra))
+library(convert)
+library(tibble)
+options(warn=-1)
+
+# rm(list = ls())
+options(stringsAsFactors = F)
+options(future.globals.maxSize = 1000 * 1024^2)
+
+grp <- c("control", "adenoma", "CRC")
+subgrp <- c("HC", "AA", "CRC")
+grp.col <- c("#568875", "#73FAFC", "#EE853D")
+```
+
+
+### Importing Data 
+```{r}
+ExprSet <- readRDS("../../Result/Profile/species_profile.RDS")
+phenotype <- pData(ExprSet)
+profile <- t(exprs(ExprSet)) %>% data.frame()
+
+ 
+```
+
+
+### Data Preprocessing
+
+#### Merging datasets
+```{r}
+df <- phenotype %>% filter(SubGroup%in%subgrp[c(1,3)]) %>%
+  dplyr::rename(Group=SubGroup) %>% 
+  rownames_to_column("SampleID") %>%
+  dplyr::select(SampleID, Group) %>%
+  inner_join(profile %>% rownames_to_column("SampleID"),
+             by = "SampleID") %>%
+  column_to_rownames("SampleID")
+```
+
+
+* Take a quick peek at the content
+```{r}
+# head(df)
+# str(df)
+glimpse(df)
+# summary(df)
+```
+
+* Convert character type into factor type
+```{r}
+df$Group <- factor(df$Group, levels = subgrp[c(1, 3)])
+str(df)
+```
+
+
+#### Check for missing value or zero value
+```{r}
+#Code for resizing
+fig <- function(w, h){
+     options(fig.width = w, fig.height = h) 
+}
+```
+
+
+* Missing value
+```{r}
+sapply(df, function(df){
+  sum(is.na(df)==T)/length(df)
+})
+```
+
+```{r}
+fig(10, 10)
+missmap(df, rank.order = FALSE, col = c(0, 8), legend = FALSE)
+```
+
+
+Zero value
+```{r}
+sapply(df[, -1], function(df){
+  length(df[df>0])/length(df)
+})
+```
+
+
+### Exploratory Data Analysis
+```{r}
+ggplot(df, aes(x=Group, fill=Group))+ 
+    geom_bar(color="black", width=0.9)+
+    coord_flip()+
+    scale_fill_manual(values=grp.col[c(1, 3)])+
+    scale_y_continuous(name=" ", limits=c(0, 1000))+ 
+    ggtitle("Group count")+
+    theme_classic()+
+    theme(plot.title=element_text(size=20, face="bold"),
+          text=element_text(size=20, family="sans"),
+          legend.position="none")
+```
+
+
+```{r, fig.width=19, fig.height=10}
+#Faecalibacterium_prausnitzii & Group
+fpg <- ggplot(df, aes(x=Faecalibacterium_prausnitzii, fill=Group))+
+              geom_histogram(stat="bin", bins=10)+
+              labs(title="Group & Faecalibacterium prausnitzii",
+                   x="", y="")+
+              scale_fill_manual(values=grp.col[c(1, 3)])+
+              theme_classic()+
+              theme(plot.title=element_text(size=20, face="bold"),
+                    text=element_text(size=20, family="sans"))
+
+#Bifidobacterium_longum & Group
+blg <- ggplot(df, aes(x=Bifidobacterium_longum, fill=Group))+
+              geom_histogram(stat="bin", bins=10)+
+              labs(title="Group & Bifidobacterium longum",
+                   x="", y="")+  
+              scale_fill_manual(values=grp.col[c(1, 3)])+
+              theme_classic()+
+              theme(plot.title=element_text(size=20, face="bold"),
+                    text=element_text(size=20, family="sans"))
+
+#Dorea_longicatena & Group
+dlg <- ggplot(df, aes(x=Dorea_longicatena, fill=Group))+
+              geom_histogram(stat="bin", bins=10)+
+              labs(title="Group & Dorea longicatena",
+                   x="", y="")+  
+              scale_fill_manual(values=grp.col[c(1, 3)])+
+              theme_classic()+
+              theme(plot.title=element_text(size=20, face="bold"),
+                    text=element_text(size=20, family="sans"))
+
+#Eubacterium_ramulus & Group
+erg <- ggplot(df, aes(x=Eubacterium_ramulus, fill=Group))+
+              geom_histogram(stat="bin", bins=10)+
+              labs(title="Group & Eubacterium ramulus",
+                   x="", y="")+
+              scale_fill_manual(values=grp.col[c(1, 3)])+
+              theme_classic()+
+              theme(plot.title=element_text(size=20, face="bold"),
+                    text=element_text(size=20, family="sans"))
+
+#Streptococcus_infantis & Group
+sig <- ggplot(df, aes(x=Streptococcus_infantis, fill=Group))+
+              geom_histogram(stat="bin", bins=10)+
+              labs(title="Group & Streptococcus infantis",
+                   x="", y="")+
+              scale_fill_manual(values=grp.col[c(1, 3)])+
+              theme_classic()+
+              theme(plot.title=element_text(size=20, face="bold"),
+                    text=element_text(size=20, family="sans"))
+
+#Butyricimonas_virosa & Group
+bvg <- ggplot(df, aes(x=Butyricimonas_virosa, fill=Group))+
+              geom_histogram(stat="bin", bins=10)+
+              labs(title="Group & Butyricimonas virosa",
+                   x="", y="")+
+              scale_fill_manual(values=grp.col[c(1, 3)])+
+              theme_classic()+
+              theme(plot.title=element_text(size=20, face="bold"),
+                    text=element_text(size=20, family="sans"))
+
+#grid.arrange(fpg, blg, dlg, erg, sig, bvg, ncol = 3, nrow = 2)
+require(patchwork)
+(fpg + blg + dlg + erg + sig + bvg)+
+  plot_layout(ncol = 3, nrow = 2, guides = "collect")
+  
+```
+
+
+### Logistic Regression
+
+#### Split Dataset into train and test
+```{r}
+df$Group <- plyr::mapvalues(df$Group, from = c("HC", "CRC"), to = c(0, 1))
+set.seed(123)
+split <- sample.split(df, SplitRatio = 0.75)
+train <- subset(df, split == "TRUE")
+test <- subset(df, split == "FALSE")
+```
+
+
+#### Check for MultiCollinearities on Numeric Variables
+```{r, fig.width=30, fig.height=30}
+numerics <- unlist(lapply(train, is.numeric))
+numerics <- train[, numerics]
+
+cor.mtest <- function(mat, ...) {
+  mat <- as.matrix(mat)
+  n <- ncol(mat)
+  p.mat<- matrix(NA, n, n)
+  diag(p.mat) <- 0
+  for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
+      tmp <- cor.test(mat[, i], mat[, j], ...)
+      p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+    }
+  }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat) 
+  p.mat
+}
+
+M <- cor(numerics)
+p.mat <- cor.mtest(numerics)
+corrplot(M, 
+         method="color", 
+         col=colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))(200),  
+         diag=FALSE,
+         type="lower", 
+         order="hclust", 
+         title="Correlation Plot of Numeric Features", 
+         addCoef.col="black",
+         p.mat=p.mat, 
+         sig.level=0.05, 
+         insig="blank", 
+         mar=c(0,0,1,0)
+        )
+```
+
+
+
+> We eliminate variables with high Variannce Inflation Factor (VIF). VIF is one measure to detect multicollinearities between the independent variables of your model. The general idea behind is to create a linear model with one particular variable as your dependent variable and all the others as your independent variable. If there is a goodness of the fit, then there is likely to be a multicollinearity issue, which is represented by a high VIF value. In practice, a VIF of > 5 represents multicollinearity.
+
+```{r}
+dummy_model <- glm(train$Group~., data=numerics, family="binomial")
+print(vif(dummy_model))
+```
+
+* Remove MonthlyIncome variable 
+```{r}
+remove_features <- names(which(vif(dummy_model) > 5))
+remove_features
+train <- train %>% dplyr::select(-all_of(remove_features))
+test <- test %>% dplyr::select(-all_of(remove_features))
+```
+
+* Check again for new VIFs
+```{r}
+numerics <- unlist(lapply(train, is.numeric))
+numerics <- train[, numerics]
+dummy_model <- glm(train$Group~., data=numerics, family="binomial")
+#print(vif(dummy_model))
+names(which(vif(dummy_model) > 5))
+```
+
+
+#### Feature Selection
+```{r, fig.width=12, fig.height=10}
+set.seed(823)
+VariableImportancePlot <- randomForest(as.factor(Group) ~. , data=train, importance=TRUE)
+varImpPlot(VariableImportancePlot)
+```
+
+
+* the N most important variables from MeanDecreaseAccuracy to build model
+```{r}
+ntop <- 5
+remamin_features <- data.frame(VariableImportancePlot$importance) %>% 
+  arrange(desc(MeanDecreaseAccuracy)) %>% 
+  dplyr::slice(1:ntop) %>%
+  rownames_to_column("FeatureID")
+print(remamin_features$FeatureID)
+final_train <- train %>% dplyr::select(all_of(c("Group", remamin_features$FeatureID)))
+final_test <- test %>% dplyr::select(all_of(c("Group", remamin_features$FeatureID)))
+```
+
+
+#### Create the Model
+```{r}
+finalGlm <- glm(Group~., data=final_train, family="binomial")
+print(finalGlm)
+```
+
+#### Predict on the Test Set
+```{r}
+thresh <- 0.5
+predictedGroupNumLog <- predict(finalGlm, newdata=final_test, type='response')
+predictedGroupLog <- ifelse(predictedGroupNumLog > thresh, 1, 0) 
+test$predictedGroup <- predictedGroupLog
+```
+
+
+#### Evaluate the Model
+
+```{r, fig.width=8, fig.height=6}
+cm <- confusionMatrix(table(test$Group, test$predictedGroup), positive = "1")
+test$predictedGroup <- as.factor(test$predictedGroup)
+print(cm)
+
+plotTable <- data.frame(confusionMatrix(test$Group, test$predictedGroup)$table) %>%
+  mutate(goodbad=ifelse(table$Prediction == table$Reference, "Good", "Bad")) %>%
+  group_by(Reference) %>%
+  mutate(prop = Freq/sum(Freq))
+
+ggplot(plotTable, aes(x=Reference, y=Prediction, fill=goodbad, alpha=prop))+
+  geom_tile()+
+  geom_text(aes(label=Freq), vjust=.5, fontface="bold", alpha=25, size=8)+
+  scale_fill_manual(name=" ", values=c(Good="#2FC70A", Bad="#F8100C"))+
+  scale_alpha(name=" ")+
+  xlim(rev(levels(table$Reference)))+
+  scale_y_discrete(name="Predicted", limits=c("1", "0"))+ 
+  scale_x_discrete(name="Actual", position="top")+
+  ggtitle("Confusion Matrix")+
+  theme_classic()+
+  theme(plot.title=element_text(size=25, family="sans", face="bold"),
+        text=element_text(size=25,  family="sans"))
+```
+
+
+* ROC curve/AUC
+```{r}
+ROCLog <- roc(test$Group, predictedGroupNumLog)
+auc <- round(auc(ROCLog), 2)
+ggroc(ROCLog, color="red", linetype=1, size=1, alpha=1, legacy.axes=T)+
+  geom_abline(intercept=0, slope=1, color="grey", size=1, linetype=1)+
+  labs(x="False Positive Rate (1 - Specificity)",
+       y="True Positive Rate (Sensivity or Recall)")+
+  annotate("text", x=.75, y=.25, label=paste("AUC =", auc),
+                 size=5, family="serif")+
+  coord_cartesian(xlim=c(0, 1), ylim=c(0, 1))+
+  theme_bw()+
+  theme(panel.background = element_rect(fill="transparent"),
+        axis.ticks.length = unit(0.4, "lines"), 
+        axis.ticks = element_line(color="black"),
+        axis.line = element_line(size=.5, color="black"),
+        axis.title = element_text(color="black", size=12, face="bold"),
+        axis.text = element_text(color="black", size=10),
+        text = element_text(size=8, color="black", family="serif")) 
+```
+
+
+### systemic information
+```{r}
+sessionInfo()
+```
+
+
+### Reference 
+
+1. [Classification and its Performance Metrics in Machine Learning](https://www.yadsmic.com/post/classification-and-its-performance-metrics-in-machine-learning)
+
+2 .[R: Logistic Regression](https://www.kaggle.com/djbacad/r-logistic-regression#Case-in-Point)
